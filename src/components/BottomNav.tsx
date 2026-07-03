@@ -3,7 +3,8 @@ import {
   LayoutDashboard,
   CreditCard,
   HelpCircle,
-  CheckSquare
+  CheckSquare,
+  Settings
 } from 'lucide-react'
 
 import { useAuth } from '../contexts/AuthContext'
@@ -16,6 +17,7 @@ export default function BottomNav() {
     { to: '/expenses', icon: CreditCard, label: 'Expense', roles: ['admin', 'representative', 'member'] },
     { to: '/queries', icon: HelpCircle, label: 'Notes', roles: ['admin', 'representative', 'member'] },
     { to: '/tasks', icon: CheckSquare, label: 'Todo', roles: ['admin', 'representative', 'member'] },
+    { to: '/settings', icon: Settings, label: 'More', roles: ['admin', 'representative', 'member'] },
   ]
 
   const filteredItems = navItems.filter(

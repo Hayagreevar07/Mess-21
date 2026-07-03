@@ -11,13 +11,7 @@ export default function Layout() {
     <div className="app-layout">
       {/* Mobile Header */}
       <header className="mobile-header">
-        <button 
-          className="btn-icon" 
-          onClick={() => setSidebarOpen(true)}
-          style={{ background: 'transparent', width: '34px' }}
-        >
-          <Menu size={24} color="var(--text-primary)" />
-        </button>
+        <div style={{ width: '34px' }}></div>
         <div className="mobile-header-logo">
           <div style={{
             width: 24,
@@ -35,7 +29,21 @@ export default function Layout() {
           }}>S</div>
           <span>Scheward</span>
         </div>
-        <div style={{ width: '34px' }}></div>
+        <div style={{ 
+          width: '32px', 
+          height: '32px', 
+          borderRadius: '50%', 
+          background: 'var(--bg-glass-strong)', 
+          border: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          color: 'var(--text-secondary)'
+        }}>
+          ?
+        </div>
       </header>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

@@ -59,7 +59,7 @@ export default function SetupPage() {
         await createProfile(fullName.trim(), role)
       }
 
-      toast.success('Welcome to MessManager! 🎉')
+      toast.success('Welcome to Scheward! 🎉')
     } catch (err: any) {
       toast.error(err.message || 'Setup failed')
     } finally {

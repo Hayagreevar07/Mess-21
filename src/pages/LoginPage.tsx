@@ -89,13 +89,26 @@ export default function LoginPage() {
       </div>
 
       <div className="auth-container" style={{ position: 'relative', zIndex: 1, padding: '28px 24px' }}>
-        <div className="auth-header" style={{ marginBottom: '24px' }}>
-          <div className="auth-logo">
-            <UtensilsCrossed size={40} />
+          <div className="auth-header" style={{ marginBottom: '24px' }}>
+            <div className="auth-logo">
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontWeight: 800,
+                fontSize: '1.8rem',
+                fontFamily: 'serif',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+              }}>S</div>
+            </div>
+            <h1>Scheward</h1>
+            <p>SINCE 2026</p>
           </div>
-          <h1>MessManager</h1>
-          <p>Your mess, simplified ✨</p>
-        </div>
 
         <div className="auth-form">
           <form onSubmit={handleEmailAuth} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>

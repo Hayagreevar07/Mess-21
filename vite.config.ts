@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'MessManager',
-        short_name: 'MessManager',
+        name: 'Scheward',
+        short_name: 'Scheward',
         description: 'Your mess, simplified.',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',

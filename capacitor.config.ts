@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.messmanager.app',
-  appName: 'MessManager',
+  appName: 'Scheward',
   webDir: 'dist',
   server: {
     // Use this during development to hot-reload on device:

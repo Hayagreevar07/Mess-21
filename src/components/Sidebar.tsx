@@ -1,18 +1,17 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import {
+import { 
+  Home, 
+  Receipt, 
+  WalletCards, 
   LayoutDashboard,
-  UtensilsCrossed,
-  CalendarCheck,
-  Receipt,
-  CreditCard,
-  PiggyBank,
-  Settings,
   LogOut,
-  HelpCircle,
+  Settings,
   Users,
-  ArrowRightLeft,
-  CheckSquare
+  MessageSquare,
+  ListTodo,
+  CalendarCheck,
+  ArrowRightLeft
 } from 'lucide-react'
 
 const NAV_EMOJIS: Record<string, string> = {
@@ -39,14 +38,14 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Mess', roles: ['admin', 'representative', 'member'] },
-    { to: '/menu', icon: UtensilsCrossed, label: 'Menu', roles: ['admin', 'representative', 'member'] },
+    { to: '/menu', icon: Home, label: 'Menu', roles: ['admin', 'representative', 'member'] },
     { to: '/meals', icon: CalendarCheck, label: 'Meals', roles: ['admin', 'representative', 'member'] },
     { to: '/expenses', icon: Receipt, label: 'Expense', roles: ['admin', 'representative', 'member'] },
-    { to: '/bills', icon: CreditCard, label: 'Bills', roles: ['admin', 'representative', 'member'] },
-    { to: '/budget', icon: PiggyBank, label: 'Budget', roles: ['admin', 'representative', 'member'] },
+    { to: '/bills', icon: WalletCards, label: 'Bills', roles: ['admin', 'representative', 'member'] },
+    { to: '/budget', icon: WalletCards, label: 'Budget', roles: ['admin', 'representative', 'member'] },
     { to: '/transactions', icon: ArrowRightLeft, label: 'Transfers', roles: ['admin', 'representative', 'member'] },
-    { to: '/tasks', icon: CheckSquare, label: 'Todo', roles: ['admin', 'representative', 'member'] },
-    { to: '/queries', icon: HelpCircle, label: 'Notes', roles: ['admin', 'representative', 'member'] },
+    { to: '/tasks', icon: ListTodo, label: 'Todo', roles: ['admin', 'representative', 'member'] },
+    { to: '/queries', icon: MessageSquare, label: 'Notes', roles: ['admin', 'representative', 'member'] },
     { to: '/members', icon: Users, label: 'Members', roles: ['admin', 'representative'] },
     { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'representative', 'member'] },
   ]
@@ -67,9 +66,25 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <UtensilsCrossed size={28} />
-            <span>MessManager</span>
+          <div style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontWeight: 800,
+            fontSize: '1.2rem',
+            marginRight: '8px',
+            fontFamily: 'serif'
+          }}>S</div>
+          <div>
+            <span>Scheward</span>
+            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '-4px', fontWeight: 600, letterSpacing: '1px' }}>SINCE 2026</div>
           </div>
+        </div>
         </div>
 
       <nav className="sidebar-nav">

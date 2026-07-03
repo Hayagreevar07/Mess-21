@@ -7,7 +7,11 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { auth, googleProvider } from '../lib/firebase'
 import { supabase } from '../lib/supabase'
 import type { Profile, Role } from '../lib/types'
@@ -65,8 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signInWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider)
-    return result.user
+    if (Capacitor.isNativePlatform()) {
+      const result = await FirebaseAuthentication.signInWithGoogle()
+      const credential = GoogleAuthProvider.credential(result.credential?.idToken)
+      const userCredential = await signInWithCredential(auth, credential)
+      return userCredential.user
+    } else {
+      const result = await signInWithPopup(auth, googleProvider)
+      return result.user
+    }
   }
 
   const signInWithEmail = async (email: string, pass: string) => {

@@ -144,7 +144,7 @@ export default function MenuPage() {
           </p>
         </div>
         {(role && ['admin', 'representative'].includes(role)) && (
-          <button className="btn btn-primary" onClick={openAdd} id="menu-add-btn">
+          <button className="btn btn-primary hide-on-mobile" onClick={openAdd} id="menu-add-btn">
             <Plus size={18} /> Add Item
           </button>
         )}
@@ -276,6 +276,15 @@ export default function MenuPage() {
           </button>
         </div>
       </Modal>
+
+      {/* Mobile Floating Action Button */}
+      {(role && ['admin', 'representative'].includes(role)) && (
+        <div className="fab-container show-on-mobile">
+          <button className="fab-main" onClick={openAdd} title="Add Menu Item">
+            <Plus size={24} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

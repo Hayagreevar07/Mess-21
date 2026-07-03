@@ -2930,3 +2930,6 @@ div[role="status"] {
   50% { transform: scale(1.05); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+.show-on-mobile { display: none; }
+@media (max-width: 768px) { .show-on-mobile { display: flex; } .hide-on-mobile { display: none !important; } }

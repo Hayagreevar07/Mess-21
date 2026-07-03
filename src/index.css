@@ -1142,6 +1142,7 @@ select.form-input option {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
   min-width: 0;
 }
 
@@ -1177,6 +1178,7 @@ select.form-input option {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .menu-item-qty {

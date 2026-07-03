@@ -129,20 +129,20 @@ export default function MembersPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {invitations.map(inv => (
-                  <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div>
-                      <div style={{ fontWeight: '500', color: 'var(--text-light)' }}>{inv.email}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Role: {inv.role} • Status: {inv.status}</div>
+                  <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: '500', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inv.email}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Role: {inv.role} • Status: {inv.status}</div>
                     </div>
                     {inv.status === 'pending' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '4px 12px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.2rem', letterSpacing: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '4px 8px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem', letterSpacing: '1px' }}>
                           {inv.pin_code}
                         </div>
-                        <button className="btn-icon" onClick={() => copyToClipboard(inv.pin_code)} title="Copy PIN">
+                        <button className="btn-icon" onClick={() => copyToClipboard(inv.pin_code)} title="Copy PIN" style={{ width: '32px', height: '32px' }}>
                           <Copy size={16} />
                         </button>
-                        <button className="btn-icon btn-danger" onClick={() => handleCancelInvite(inv.id)} title="Cancel Invite">
+                        <button className="btn-icon btn-danger" onClick={() => handleCancelInvite(inv.id)} title="Cancel Invite" style={{ width: '32px', height: '32px' }}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -164,21 +164,21 @@ export default function MembersPage() {
             </h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               {members.map(m => (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                   {m.avatar_url ? (
-                    <img src={m.avatar_url} alt={m.full_name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                    <img src={m.avatar_url} alt={m.full_name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} referrerPolicy="no-referrer" />
                   ) : (
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
                       {m.full_name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '500', color: 'var(--text-light)' }}>{m.full_name}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '500', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.full_name}</div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Mail size={12} /> {m.email}
+                      <Mail size={12} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</span>
                     </div>
                   </div>
-                  <span className={`badge`} style={{ textTransform: 'capitalize' }}>
+                  <span className={`badge`} style={{ textTransform: 'capitalize', flexShrink: 0 }}>
                     {m.role}
                   </span>
                 </div>

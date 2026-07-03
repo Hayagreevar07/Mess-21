@@ -4,7 +4,8 @@ import {
   UtensilsCrossed,
   CalendarCheck,
   CreditCard,
-  PiggyBank
+  PiggyBank,
+  HelpCircle
 } from 'lucide-react'
 
 export default function BottomNav() {
@@ -14,6 +15,7 @@ export default function BottomNav() {
     { to: '/meals', icon: CalendarCheck, label: 'Meals' },
     { to: '/bills', icon: CreditCard, label: 'Bills' },
     { to: '/budget', icon: PiggyBank, label: 'Budget' },
+    { to: '/queries', icon: HelpCircle, label: 'Queries' },
   ]
 
   return (

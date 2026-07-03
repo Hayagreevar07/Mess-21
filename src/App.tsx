@@ -18,6 +18,7 @@ const ExpensePage = lazy(() => import('./pages/ExpensePage'))
 const BillsPage = lazy(() => import('./pages/BillsPage'))
 const BudgetPage = lazy(() => import('./pages/BudgetPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const QueriesPage = lazy(() => import('./pages/QueriesPage'))
 
 function PageLoader() {
   return (
@@ -84,6 +85,7 @@ function App() {
               />
               <Route path="/bills" element={<BillsPage />} />
               <Route path="/budget" element={<BudgetPage />} />
+              <Route path="/queries" element={<QueriesPage />} />
               <Route
                 path="/settings"
                 element={

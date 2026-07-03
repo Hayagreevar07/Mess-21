@@ -8,7 +8,8 @@ import {
   CreditCard,
   PiggyBank,
   Settings,
-  LogOut
+  LogOut,
+  HelpCircle
 } from 'lucide-react'
 
 const NAV_EMOJIS: Record<string, string> = {
@@ -18,6 +19,7 @@ const NAV_EMOJIS: Record<string, string> = {
   '/expenses': '🧾',
   '/bills': '💳',
   '/budget': '💰',
+  '/queries': '💬',
   '/settings': '⚙️',
 }
 
@@ -31,6 +33,7 @@ export default function Sidebar() {
     { to: '/expenses', icon: Receipt, label: 'Expenses', roles: ['admin', 'representative'] },
     { to: '/bills', icon: CreditCard, label: 'Bills', roles: ['admin', 'representative', 'member'] },
     { to: '/budget', icon: PiggyBank, label: 'Budget', roles: ['admin', 'representative', 'member'] },
+    { to: '/queries', icon: HelpCircle, label: 'Queries', roles: ['admin', 'representative', 'member'] },
     { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
   ]
 

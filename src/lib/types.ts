@@ -64,3 +64,16 @@ export interface MessSettings {
   monthly_start_day: number
   created_at: string
 }
+
+export interface SupportQuery {
+  id: string
+  member_id: string
+  subject: string
+  description: string
+  status: 'open' | 'resolved'
+  resolved_by?: string
+  created_at: string
+  resolved_at?: string
+  member?: Profile
+  resolver?: Profile
+}

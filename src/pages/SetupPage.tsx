@@ -11,6 +11,9 @@ export default function SetupPage() {
   const [role, setRole] = useState<Role>('member')
   const [submitting, setSubmitting] = useState(false)
 
+  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL
+  const isAdminAllowed = user?.email === adminEmail
+
   if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   if (profile && !needsProfile) return <Navigate to="/dashboard" replace />
@@ -104,12 +107,16 @@ export default function SetupPage() {
                 <button
                   key={r.value}
                   type="button"
-                  className={`role-option-v ${role === r.value ? 'active' : ''}`}
-                  onClick={() => setRole(r.value)}
+                  className={`role-option-v ${role === r.value ? 'active' : ''} ${r.value === 'admin' && !isAdminAllowed ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (r.value === 'admin' && !isAdminAllowed) return
+                    setRole(r.value)
+                  }}
                   id={`setup-role-${r.value}`}
                   style={
-                    { '--role-color': r.color } as React.CSSProperties
+                    { '--role-color': r.color, opacity: r.value === 'admin' && !isAdminAllowed ? 0.5 : 1, cursor: r.value === 'admin' && !isAdminAllowed ? 'not-allowed' : 'pointer' } as React.CSSProperties
                   }
+                  title={r.value === 'admin' && !isAdminAllowed ? `Only ${adminEmail || 'the administrator'} can select this role.` : ''}
                 >
                   <div className="role-option-icon">
                     <r.icon size={22} />

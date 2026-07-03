@@ -9,7 +9,10 @@ import {
   PiggyBank,
   Settings,
   LogOut,
-  HelpCircle
+  HelpCircle,
+  Users,
+  ArrowRightLeft,
+  CheckSquare
 } from 'lucide-react'
 
 const NAV_EMOJIS: Record<string, string> = {
@@ -20,21 +23,32 @@ const NAV_EMOJIS: Record<string, string> = {
   '/bills': '💳',
   '/budget': '💰',
   '/queries': '💬',
+  '/members': '👥',
+  '/transactions': '💸',
+  '/tasks': '☑️',
   '/settings': '⚙️',
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean
+  onClose?: () => void
+}
+
+export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { profile, user, signOut } = useAuth()
 
   const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'representative', 'member'] },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Mess', roles: ['admin', 'representative', 'member'] },
     { to: '/menu', icon: UtensilsCrossed, label: 'Menu', roles: ['admin', 'representative', 'member'] },
     { to: '/meals', icon: CalendarCheck, label: 'Meals', roles: ['admin', 'representative', 'member'] },
-    { to: '/expenses', icon: Receipt, label: 'Expenses', roles: ['admin', 'representative'] },
+    { to: '/expenses', icon: Receipt, label: 'Expense', roles: ['admin', 'representative', 'member'] },
     { to: '/bills', icon: CreditCard, label: 'Bills', roles: ['admin', 'representative', 'member'] },
     { to: '/budget', icon: PiggyBank, label: 'Budget', roles: ['admin', 'representative', 'member'] },
-    { to: '/queries', icon: HelpCircle, label: 'Queries', roles: ['admin', 'representative', 'member'] },
-    { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
+    { to: '/transactions', icon: ArrowRightLeft, label: 'Transfers', roles: ['admin', 'representative', 'member'] },
+    { to: '/tasks', icon: CheckSquare, label: 'Todo', roles: ['admin', 'representative', 'member'] },
+    { to: '/queries', icon: HelpCircle, label: 'Notes', roles: ['admin', 'representative', 'member'] },
+    { to: '/members', icon: Users, label: 'Members', roles: ['admin', 'representative'] },
+    { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'representative', 'member'] },
   ]
 
   const filteredItems = navItems.filter(
@@ -45,13 +59,18 @@ export default function Sidebar() {
   const avatarUrl = user?.photoURL || profile?.avatar_url
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <UtensilsCrossed size={28} />
-          <span>MessManager</span>
+    <>
+      <div 
+        className={`sidebar-overlay ${isOpen ? 'open' : ''}`} 
+        onClick={onClose}
+      />
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <UtensilsCrossed size={28} />
+            <span>MessManager</span>
+          </div>
         </div>
-      </div>
 
       <nav className="sidebar-nav">
         {filteredItems.map(item => (
@@ -59,6 +78,7 @@ export default function Sidebar() {
             key={item.to}
             to={item.to}
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
           >
             <item.icon size={20} />
             <span>{item.label}</span>
@@ -97,5 +117,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   )
 }

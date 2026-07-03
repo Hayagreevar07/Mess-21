@@ -203,7 +203,7 @@ export default function DashboardPage() {
               title="Members"
               value={stats.totalMembers}
               icon={Users}
-              color="#8b5cf6"
+              color="#10b981"
             />
             <StatCard
               title="Menu Items"
@@ -236,7 +236,7 @@ export default function DashboardPage() {
           title="My Spending"
           value={`₹${stats.myMonthlySpend.toLocaleString()}`}
           icon={IndianRupee}
-          color="#a855f7"
+          color="#14b8a6"
           subtitle="This month"
         />
       </div>

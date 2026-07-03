@@ -22,7 +22,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, pass: string) => Promise<User>
   signUpWithEmail: (email: string, pass: string) => Promise<User>
   signOut: () => Promise<void>
-  createProfile: (fullName: string, role: Role) => Promise<void>
+  createProfile: (fullName: string, role: Role, repId?: string) => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
@@ -85,13 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsProfile(false)
   }
 
-  const createProfile = async (fullName: string, role: Role) => {
+  const createProfile = async (fullName: string, role: Role, repId?: string) => {
     if (!user) throw new Error('Not authenticated')
     const { error } = await supabase.from('profiles').insert({
       id: user.uid,
       full_name: fullName,
       email: user.email || '',
       role,
+      rep_id: repId || null,
       avatar_url: user.photoURL || null,
     })
     if (error) throw error

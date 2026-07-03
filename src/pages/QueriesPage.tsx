@@ -29,7 +29,7 @@ export default function QueriesPage() {
         .from('queries')
         .select(`
           *,
-          member:profiles!queries_member_id_fkey(id, full_name, role),
+          member:profiles!queries_member_id_fkey(id, full_name, role, rep_id),
           resolver:profiles!queries_resolved_by_fkey(id, full_name)
         `)
         .order('created_at', { ascending: false })
@@ -37,11 +37,22 @@ export default function QueriesPage() {
       // Members only see their own queries
       if (isMember && profile) {
         query = query.eq('member_id', profile.id)
+      } else if (profile?.role === 'representative') {
+        // Representatives only see queries from their members
+        query = query.eq('member.rep_id', profile.id)
       }
 
       const { data, error } = await query
       if (error) throw error
-      setQueries(data as SupportQuery[])
+      
+      let filteredData = data as SupportQuery[]
+      // Note: Supabase's inner join filtering like `member.rep_id` might not filter the root table if it's an outer join. 
+      // It's safer to filter in JS since the dataset is small.
+      if (profile?.role === 'representative') {
+        filteredData = filteredData.filter(q => (q as any).member?.rep_id === profile.id)
+      }
+      
+      setQueries(filteredData)
     } catch (err: any) {
       toast.error('Failed to load queries')
     } finally {

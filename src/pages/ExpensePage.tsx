@@ -19,7 +19,7 @@ const expenseCategories = [
 ]
 
 export default function ExpensePage() {
-  const { profile } = useAuth()
+  const { profile, role } = useAuth()
   const [expenses, setExpenses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -36,11 +36,26 @@ export default function ExpensePage() {
   }, [])
 
   const fetchExpenses = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from('expenses')
-      .select('*, added_by_profile:profiles!expenses_added_by_fkey(full_name)')
+      .select('*, added_by_profile:profiles!expenses_added_by_fkey(full_name, role)')
       .order('date', { ascending: false })
-    setExpenses(data || [])
+
+    if (role === 'member') {
+      query = query.eq('added_by', profile?.id)
+    }
+
+    const { data } = await query
+
+    let filteredData = data || []
+    
+    if (role !== 'member') {
+      // Admins/Reps should only see expenses added by Admins/Reps (Mess Expenses)
+      // They don't see personal expenses of members
+      filteredData = filteredData.filter(e => e.added_by_profile?.role !== 'member')
+    }
+
+    setExpenses(filteredData)
     setLoading(false)
   }
 
@@ -110,7 +125,7 @@ export default function ExpensePage() {
     <div className="page expense-page">
       <div className="page-header">
         <div>
-          <h1>Expenses</h1>
+          <h1>{role === 'member' ? 'My Expenses' : 'Mess Expenses'}</h1>
           <p className="page-subtitle">
             Total: ₹{totalExpenses.toLocaleString()}
           </p>
@@ -155,17 +170,19 @@ export default function ExpensePage() {
               <span className="expense-amount">
                 ₹{Number(exp.amount).toLocaleString()}
               </span>
-              <div className="expense-actions">
-                <button className="btn-icon" onClick={() => openEdit(exp)}>
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  className="btn-icon btn-danger"
-                  onClick={() => handleDelete(exp.id)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              {exp.added_by === profile?.id && (
+                <div className="expense-actions">
+                  <button className="btn-icon" onClick={() => openEdit(exp)}>
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    className="btn-icon btn-danger"
+                    onClick={() => handleDelete(exp.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

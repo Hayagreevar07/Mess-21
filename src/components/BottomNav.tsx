@@ -1,26 +1,30 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  UtensilsCrossed,
-  CalendarCheck,
   CreditCard,
-  PiggyBank,
-  HelpCircle
+  HelpCircle,
+  CheckSquare
 } from 'lucide-react'
 
+import { useAuth } from '../contexts/AuthContext'
+
 export default function BottomNav() {
+  const { profile } = useAuth()
+
   const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { to: '/menu', icon: UtensilsCrossed, label: 'Menu' },
-    { to: '/meals', icon: CalendarCheck, label: 'Meals' },
-    { to: '/bills', icon: CreditCard, label: 'Bills' },
-    { to: '/budget', icon: PiggyBank, label: 'Budget' },
-    { to: '/queries', icon: HelpCircle, label: 'Queries' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Mess', roles: ['admin', 'representative', 'member'] },
+    { to: '/expenses', icon: CreditCard, label: 'Expense', roles: ['admin', 'representative', 'member'] },
+    { to: '/queries', icon: HelpCircle, label: 'Notes', roles: ['admin', 'representative', 'member'] },
+    { to: '/tasks', icon: CheckSquare, label: 'Todo', roles: ['admin', 'representative', 'member'] },
   ]
+
+  const filteredItems = navItems.filter(
+    item => profile && item.roles.includes(profile.role)
+  )
 
   return (
     <nav className="bottom-nav">
-      {navItems.map(item => (
+      {filteredItems.map(item => (
         <NavLink
           key={item.to}
           to={item.to}

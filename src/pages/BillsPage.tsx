@@ -35,11 +35,24 @@ export default function BillsPage() {
             .select('*, member:profiles(full_name)')
             .order('due_date', { ascending: false })
 
+    let memberQuery = supabase.from('profiles').select('*').order('full_name')
+    if (role === 'representative') {
+      memberQuery = memberQuery.eq('rep_id', profile?.id)
+    }
+
     const [{ data: billData }, { data: memberData }] = await Promise.all([
       billQuery,
-      supabase.from('profiles').select('*').order('full_name'),
+      memberQuery,
     ])
-    setBills(billData || [])
+    
+    let filteredBills = billData || []
+    if (role === 'representative') {
+      // bill.member.rep_id is not directly selected, so let's filter using the members list
+      const memberIds = (memberData || []).map(m => m.id)
+      filteredBills = filteredBills.filter(b => memberIds.includes(b.member_id))
+    }
+    
+    setBills(filteredBills)
     setMembers(memberData || [])
     setLoading(false)
   }
@@ -83,6 +96,13 @@ export default function BillsPage() {
     .filter(b => b.is_paid)
     .reduce((sum, b) => sum + Number(b.amount), 0)
 
+  const groupedBills = bills.reduce((acc, bill) => {
+    const memberName = bill.member?.full_name || 'Unknown'
+    if (!acc[memberName]) acc[memberName] = []
+    acc[memberName].push(bill)
+    return acc
+  }, {} as Record<string, any[]>)
+
   return (
     <div className="page bills-page">
       <div className="page-header">
@@ -119,43 +139,80 @@ export default function BillsPage() {
         </div>
       ) : (
         <div className="bills-list">
-          {bills.map(bill => (
-            <div
-              key={bill.id}
-              className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
-            >
-              <div className="bill-status-icon">
-                {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
-              </div>
-              <div className="bill-info">
-                <span className="bill-member">
-                  {bill.member?.full_name}
+          {role === 'member' ? (
+            bills.map(bill => (
+              <div
+                key={bill.id}
+                className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
+              >
+                <div className="bill-status-icon">
+                  {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
+                </div>
+                <div className="bill-info">
+                  <span className="bill-member">
+                    {bill.member?.full_name}
+                  </span>
+                  <span className="bill-meta">
+                    {bill.month} · Due:{' '}
+                    {new Date(bill.due_date).toLocaleDateString('en-IN')}
+                    {!bill.is_paid &&
+                      new Date(bill.due_date) < new Date() && (
+                        <span className="bill-overdue">
+                          <AlertCircle size={12} /> Overdue
+                        </span>
+                      )}
+                  </span>
+                </div>
+                <span className="bill-amount">
+                  ₹{Number(bill.amount).toLocaleString()}
                 </span>
-                <span className="bill-meta">
-                  {bill.month} · Due:{' '}
-                  {new Date(bill.due_date).toLocaleDateString('en-IN')}
-                  {!bill.is_paid &&
-                    new Date(bill.due_date) < new Date() && (
-                      <span className="bill-overdue">
-                        <AlertCircle size={12} /> Overdue
+              </div>
+            ))
+          ) : (
+            Object.entries(groupedBills).map(([memberName, memberBills]) => (
+              <div key={memberName} className="card tilt-card" style={{ marginBottom: '16px' }}>
+                <h3 style={{ marginBottom: '12px', color: 'var(--primary-light)', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                  {memberName}
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {(memberBills as any[]).map((bill: any) => (
+                    <div
+                      key={bill.id}
+                      className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
+                      style={{ margin: 0 }}
+                    >
+                      <div className="bill-status-icon">
+                        {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
+                      </div>
+                      <div className="bill-info">
+                        <span className="bill-meta">
+                          {bill.month} · Due:{' '}
+                          {new Date(bill.due_date).toLocaleDateString('en-IN')}
+                          {!bill.is_paid &&
+                            new Date(bill.due_date) < new Date() && (
+                              <span className="bill-overdue">
+                                <AlertCircle size={12} /> Overdue
+                              </span>
+                            )}
+                        </span>
+                      </div>
+                      <span className="bill-amount">
+                        ₹{Number(bill.amount).toLocaleString()}
                       </span>
-                    )}
-                </span>
+                      {!bill.is_paid && (
+                        <button
+                          className="btn btn-sm btn-success"
+                          onClick={() => markPaid(bill.id)}
+                        >
+                          <Check size={14} /> Paid
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <span className="bill-amount">
-                ₹{Number(bill.amount).toLocaleString()}
-              </span>
-              {!bill.is_paid &&
-                (role === 'admin' || role === 'representative') && (
-                  <button
-                    className="btn btn-sm btn-success"
-                    onClick={() => markPaid(bill.id)}
-                  >
-                    <Check size={14} /> Paid
-                  </button>
-                )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 

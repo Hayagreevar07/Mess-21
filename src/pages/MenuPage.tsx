@@ -143,7 +143,7 @@ export default function MenuPage() {
             {items.length} items across {categories.length} categories
           </p>
         </div>
-        {role === 'admin' && (
+        {(role && ['admin', 'representative'].includes(role)) && (
           <button className="btn btn-primary" onClick={openAdd} id="menu-add-btn">
             <Plus size={18} /> Add Item
           </button>
@@ -189,7 +189,7 @@ export default function MenuPage() {
         <div className="empty-state">
           <UtensilsCrossed size={48} />
           <p>{search ? `No items matching "${search}"` : 'No menu items found'}</p>
-          {role === 'admin' && (
+          {(role && ['admin', 'representative'].includes(role)) && (
             <button className="btn btn-primary" onClick={openAdd} style={{ marginTop: '12px' }}>
               <Plus size={16} /> Add First Item
             </button>
@@ -207,7 +207,7 @@ export default function MenuPage() {
                   {item.category}
                 </span>
               </div>
-              {role === 'admin' && (
+              {(role && ['admin', 'representative'].includes(role)) && (
                 <div className="menu-item-actions">
                   <button className="btn-icon" onClick={() => openEdit(item)} title="Edit">
                     <Edit2 size={16} />

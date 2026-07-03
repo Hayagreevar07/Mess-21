@@ -12,21 +12,24 @@ export default function SettingsPage() {
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [fullName, setFullName] = useState(profile?.full_name || '')
 
   useEffect(() => {
     fetchSettings()
   }, [])
 
   const fetchSettings = async () => {
-    const [{ data: settings }, { data: memberData }] = await Promise.all([
-      supabase.from('mess_settings').select('*').limit(1).single(),
-      supabase.from('profiles').select('*').order('full_name'),
-    ])
-    if (settings) {
-      setMessName(settings.mess_name)
-      setStartDay(settings.monthly_start_day)
+    if (profile?.role === 'admin') {
+      const [{ data: settings }, { data: memberData }] = await Promise.all([
+        supabase.from('mess_settings').select('*').limit(1).single(),
+        supabase.from('profiles').select('*').order('full_name'),
+      ])
+      if (settings) {
+        setMessName(settings.mess_name)
+        setStartDay(settings.monthly_start_day)
+      }
+      setMembers(memberData || [])
     }
-    setMembers(memberData || [])
     setLoading(false)
   }
 
@@ -62,6 +65,34 @@ export default function SettingsPage() {
     fetchSettings()
   }
 
+  const saveProfile = async () => {
+    if (!fullName.trim()) return toast.error('Name cannot be empty')
+    setSaving(true)
+    const { error } = await supabase.from('profiles').update({ full_name: fullName }).eq('id', profile?.id)
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Profile updated!')
+      setTimeout(() => window.location.reload(), 1000)
+    }
+    setSaving(false)
+  }
+
+  const deleteAccount = async () => {
+    if (!confirm('Are you SURE you want to delete your account? This will log you out and delete your profile.')) return
+    
+    // We only delete from 'profiles'. Firebase Auth user deletion requires client SDK re-auth.
+    // For now, removing from profiles makes the user lose access.
+    const { error } = await supabase.from('profiles').delete().eq('id', profile?.id)
+    
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Account deleted.')
+      window.location.reload()
+    }
+  }
+
   const roleIcon = (role: string) => {
     switch (role) {
       case 'admin':
@@ -94,6 +125,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {profile?.role === 'admin' && (
       <div className="settings-section glass-card">
         <h3>
           <Settings size={18} /> General Settings
@@ -129,7 +161,9 @@ export default function SettingsPage() {
           <Save size={16} /> {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+      )}
 
+      {profile?.role === 'admin' && (
       <div className="settings-section glass-card">
         <h3>
           <Users size={18} /> Members ({members.length})
@@ -175,6 +209,46 @@ export default function SettingsPage() {
               </div>
             )
           })}
+        </div>
+      </div>
+      )}
+
+      {/* My Profile Section (For everyone) */}
+      <div className="settings-section glass-card" style={{ marginTop: '24px' }}>
+        <h3>
+          <UserCheck size={18} /> My Profile
+        </h3>
+        
+        <div className="form-group">
+          <label className="form-label">Full Name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={fullName}
+            onChange={e => setFullName(e.target.value)}
+          />
+        </div>
+
+        <button
+          className="btn btn-primary"
+          onClick={saveProfile}
+          disabled={saving}
+          style={{ marginBottom: '24px' }}
+        >
+          <Save size={16} /> Update Profile
+        </button>
+
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <h4 style={{ color: 'var(--danger)', marginBottom: '8px' }}>Danger Zone</h4>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            Deleting your account will remove your profile and access to the mess.
+          </p>
+          <button
+            className="btn btn-danger"
+            onClick={deleteAccount}
+          >
+            <UserMinus size={16} /> Delete My Account
+          </button>
         </div>
       </div>
     </div>

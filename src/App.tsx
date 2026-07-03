@@ -19,6 +19,9 @@ const BillsPage = lazy(() => import('./pages/BillsPage'))
 const BudgetPage = lazy(() => import('./pages/BudgetPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const QueriesPage = lazy(() => import('./pages/QueriesPage'))
+const MembersPage = lazy(() => import('./pages/MembersPage'))
+const TransactionsPage = lazy(() => import('./pages/TransactionsPage'))
+const TasksPage = lazy(() => import('./pages/TasksPage'))
 
 function PageLoader() {
   return (
@@ -75,25 +78,14 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/menu" element={<MenuPage />} />
               <Route path="/meals" element={<MealLogPage />} />
-              <Route
-                path="/expenses"
-                element={
-                  <ProtectedRoute requiredRole={['admin', 'representative']}>
-                    <ExpensePage />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/expenses" element={<ExpensePage />} />
               <Route path="/bills" element={<BillsPage />} />
               <Route path="/budget" element={<BudgetPage />} />
               <Route path="/queries" element={<QueriesPage />} />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute requiredRole={['admin']}>
-                    <SettingsPage />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/members" element={<MembersPage />} />
+              <Route path="/transactions" element={<TransactionsPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

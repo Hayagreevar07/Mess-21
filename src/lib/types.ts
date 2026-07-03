@@ -7,8 +7,9 @@ export type MenuCategory = 'breakfast' | 'lunch' | 'dinner' | 'snack'
 export interface Profile {
   id: string
   full_name: string
-  email?: string
+  email: string
   role: Role
+  rep_id?: string
   avatar_url?: string
   created_at: string
 }
@@ -76,4 +77,38 @@ export interface SupportQuery {
   resolved_at?: string
   member?: Profile
   resolver?: Profile
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  pin_code: string
+  role: Role
+  status: 'pending' | 'accepted'
+  created_by: string
+  created_at: string
+  creator?: Profile
+}
+
+export interface Transaction {
+  id: string
+  from_id: string | null
+  to_id: string | null
+  amount: number
+  type: 'lend' | 'repay' | 'mess_bill'
+  status: 'pending' | 'completed' | 'rejected'
+  description?: string
+  created_at: string
+  from_profile?: Profile
+  to_profile?: Profile
+}
+
+export interface Task {
+  id: string
+  title: string
+  status: 'todo' | 'in_progress' | 'done'
+  due_date?: string
+  assigned_to?: string
+  created_at: string
+  assignee?: Profile
 }

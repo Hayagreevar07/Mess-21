@@ -68,19 +68,7 @@ export default defineConfig({
   // Relative paths for Capacitor Android compatibility
   base: './',
   build: {
-    // Code-split for faster initial load
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-firebase': ['firebase/app', 'firebase/auth'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-ui': ['lucide-react', 'react-hot-toast'],
-        },
-      },
-    },
     chunkSizeWarningLimit: 600,
-    minify: 'esbuild',
     sourcemap: false,
     target: 'es2020',
   },

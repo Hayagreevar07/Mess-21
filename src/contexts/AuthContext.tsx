@@ -5,6 +5,8 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
 } from 'firebase/auth'
 import { auth, googleProvider } from '../lib/firebase'
 import { supabase } from '../lib/supabase'
@@ -17,6 +19,8 @@ interface AuthContextType {
   loading: boolean
   needsProfile: boolean
   signInWithGoogle: () => Promise<User>
+  signInWithEmail: (email: string, pass: string) => Promise<User>
+  signUpWithEmail: (email: string, pass: string) => Promise<User>
   signOut: () => Promise<void>
   createProfile: (fullName: string, role: Role) => Promise<void>
   refreshProfile: () => Promise<void>
@@ -65,6 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user
   }
 
+  const signInWithEmail = async (email: string, pass: string) => {
+    const result = await signInWithEmailAndPassword(auth, email, pass)
+    return result.user
+  }
+
+  const signUpWithEmail = async (email: string, pass: string) => {
+    const result = await createUserWithEmailAndPassword(auth, email, pass)
+    return result.user
+  }
+
   const signOut = async () => {
     await firebaseSignOut(auth)
     setProfile(null)
@@ -97,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         needsProfile,
         signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
         signOut,
         createProfile,
         refreshProfile,

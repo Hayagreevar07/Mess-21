@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { UtensilsCrossed, Mail, Lock } from 'lucide-react'
+import { Mail, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const FOOD_EMOJIS = ['🍛', '🍚', '🥘', '☕', '🍳', '🫕', '🍲', '🥞', '🍿', '🧁', '🍜', '🫖', '🍽️', '🥗', '🍱', '🫙']

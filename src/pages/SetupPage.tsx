@@ -103,20 +103,16 @@ export default function SetupPage() {
           <div className="form-group">
             <label className="form-label">Select Your Role</label>
             <div className="role-selector-vertical">
-              {roles.map(r => (
+              {roles.filter(r => r.value !== 'admin' || isAdminAllowed).map(r => (
                 <button
                   key={r.value}
                   type="button"
-                  className={`role-option-v ${role === r.value ? 'active' : ''} ${r.value === 'admin' && !isAdminAllowed ? 'disabled' : ''}`}
-                  onClick={() => {
-                    if (r.value === 'admin' && !isAdminAllowed) return
-                    setRole(r.value)
-                  }}
+                  className={`role-option-v ${role === r.value ? 'active' : ''}`}
+                  onClick={() => setRole(r.value)}
                   id={`setup-role-${r.value}`}
                   style={
-                    { '--role-color': r.color, opacity: r.value === 'admin' && !isAdminAllowed ? 0.5 : 1, cursor: r.value === 'admin' && !isAdminAllowed ? 'not-allowed' : 'pointer' } as React.CSSProperties
+                    { '--role-color': r.color } as React.CSSProperties
                   }
-                  title={r.value === 'admin' && !isAdminAllowed ? `Only ${adminEmail || 'the administrator'} can select this role.` : ''}
                 >
                   <div className="role-option-icon">
                     <r.icon size={22} />

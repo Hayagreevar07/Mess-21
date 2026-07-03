@@ -64,15 +64,21 @@ export default function MealLogPage() {
   }, [])
 
   const fetchData = async () => {
-    const [{ data: items }, { data: profiles }] = await Promise.all([
-      supabase
-        .from('menu_items')
-        .select('*')
-        .eq('is_available', true)
-        .order('category')
-        .order('name'),
-      supabase.from('profiles').select('*').order('full_name'),
-    ])
+    // Fetch menu items
+    const { data: items } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('is_available', true)
+      .order('category')
+      .order('name')
+
+    // For reps, only fetch their own members; for admin, fetch all
+    let profilesQuery = supabase.from('profiles').select('*').order('full_name')
+    if (role === 'representative' && profile) {
+      profilesQuery = profilesQuery.eq('rep_id', profile.id)
+    }
+    const { data: profiles } = await profilesQuery
+
     setMenuItems((items as MenuItem[]) || [])
     setMembers((profiles as Profile[]) || [])
     if (role === 'member' && profile) {

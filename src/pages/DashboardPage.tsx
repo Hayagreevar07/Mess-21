@@ -62,9 +62,14 @@ export default function DashboardPage() {
         1
       ).toISOString().split('T')[0]
 
-      const { count: memberCount } = await supabase
+      // For reps, only count their own members; for admin, count all
+      let memberQuery = supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
+      if (role === 'representative' && profile) {
+        memberQuery = memberQuery.eq('rep_id', profile.id)
+      }
+      const { count: memberCount } = await memberQuery
 
       const { count: menuCount } = await supabase
         .from('menu_items')
@@ -83,10 +88,24 @@ export default function DashboardPage() {
         .select('*', { count: 'exact', head: true })
         .eq('is_paid', false)
 
-      const { count: todayMeals } = await supabase
+      // For reps, get their member IDs first
+      let repMemberIds: string[] = []
+      if (role === 'representative' && profile) {
+        const { data: repMembers } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('rep_id', profile.id)
+        repMemberIds = repMembers?.map(m => m.id) || []
+      }
+
+      let todayMealsQuery = supabase
         .from('meal_logs')
         .select('*', { count: 'exact', head: true })
         .eq('date', today)
+      if (role === 'representative' && repMemberIds.length > 0) {
+        todayMealsQuery = todayMealsQuery.in('member_id', repMemberIds)
+      }
+      const { count: todayMeals } = await todayMealsQuery
 
       let mySpend = 0
       if (profile) {
@@ -101,11 +120,15 @@ export default function DashboardPage() {
         }, 0) || 0
       }
 
-      const { data: recent } = await supabase
+      let recentQuery = supabase
         .from('meal_logs')
         .select('*, menu_item:menu_items(name, price), member:profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(5)
+      if (role === 'representative' && repMemberIds.length > 0) {
+        recentQuery = recentQuery.in('member_id', repMemberIds)
+      }
+      const { data: recent } = await recentQuery
 
       setStats({
         totalMembers: memberCount || 0,

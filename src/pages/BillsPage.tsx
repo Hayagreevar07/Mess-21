@@ -1,0 +1,218 @@
+import { useEffect, useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import Modal from '../components/Modal'
+import { CreditCard, Plus, Check, Clock, AlertCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
+
+export default function BillsPage() {
+  const { profile, role } = useAuth()
+  const [bills, setBills] = useState<any[]>([])
+  const [members, setMembers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [form, setForm] = useState({
+    member_id: '',
+    amount: '',
+    month: new Date().toISOString().slice(0, 7),
+    due_date: '',
+  })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    const billQuery =
+      role === 'member'
+        ? supabase
+            .from('due_bills')
+            .select('*, member:profiles(full_name)')
+            .eq('member_id', profile?.id)
+            .order('due_date', { ascending: false })
+        : supabase
+            .from('due_bills')
+            .select('*, member:profiles(full_name)')
+            .order('due_date', { ascending: false })
+
+    const [{ data: billData }, { data: memberData }] = await Promise.all([
+      billQuery,
+      supabase.from('profiles').select('*').order('full_name'),
+    ])
+    setBills(billData || [])
+    setMembers(memberData || [])
+    setLoading(false)
+  }
+
+  const handleAdd = async () => {
+    if (!form.member_id || !form.amount || !form.due_date) {
+      return toast.error('Fill all fields')
+    }
+    const { error } = await supabase.from('due_bills').insert({
+      member_id: form.member_id,
+      amount: parseFloat(form.amount),
+      month: form.month,
+      due_date: form.due_date,
+    })
+    if (error) return toast.error(error.message)
+    toast.success('Bill added!')
+    setModalOpen(false)
+    setForm({
+      member_id: '',
+      amount: '',
+      month: new Date().toISOString().slice(0, 7),
+      due_date: '',
+    })
+    fetchData()
+  }
+
+  const markPaid = async (id: string) => {
+    const { error } = await supabase
+      .from('due_bills')
+      .update({ is_paid: true, paid_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return toast.error(error.message)
+    toast.success('Marked as paid!')
+    fetchData()
+  }
+
+  const totalPending = bills
+    .filter(b => !b.is_paid)
+    .reduce((sum, b) => sum + Number(b.amount), 0)
+  const totalPaid = bills
+    .filter(b => b.is_paid)
+    .reduce((sum, b) => sum + Number(b.amount), 0)
+
+  return (
+    <div className="page bills-page">
+      <div className="page-header">
+        <div>
+          <h1>Bills</h1>
+          <p className="page-subtitle">
+            Pending: ₹{totalPending.toLocaleString()} · Paid: ₹
+            {totalPaid.toLocaleString()}
+          </p>
+        </div>
+        {(role === 'admin' || role === 'representative') && (
+          <button
+            className="btn btn-primary"
+            onClick={() => setModalOpen(true)}
+            id="bills-add-btn"
+          >
+            <Plus size={18} /> Add Bill
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="page-loader">
+          <div className="loader">
+            <div className="loader-ring"></div>
+            <div className="loader-ring"></div>
+            <div className="loader-ring"></div>
+          </div>
+        </div>
+      ) : bills.length === 0 ? (
+        <div className="empty-state">
+          <CreditCard size={48} />
+          <p>No bills yet</p>
+        </div>
+      ) : (
+        <div className="bills-list">
+          {bills.map(bill => (
+            <div
+              key={bill.id}
+              className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
+            >
+              <div className="bill-status-icon">
+                {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
+              </div>
+              <div className="bill-info">
+                <span className="bill-member">
+                  {bill.member?.full_name}
+                </span>
+                <span className="bill-meta">
+                  {bill.month} · Due:{' '}
+                  {new Date(bill.due_date).toLocaleDateString('en-IN')}
+                  {!bill.is_paid &&
+                    new Date(bill.due_date) < new Date() && (
+                      <span className="bill-overdue">
+                        <AlertCircle size={12} /> Overdue
+                      </span>
+                    )}
+                </span>
+              </div>
+              <span className="bill-amount">
+                ₹{Number(bill.amount).toLocaleString()}
+              </span>
+              {!bill.is_paid &&
+                (role === 'admin' || role === 'representative') && (
+                  <button
+                    className="btn btn-sm btn-success"
+                    onClick={() => markPaid(bill.id)}
+                  >
+                    <Check size={14} /> Paid
+                  </button>
+                )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Add Due Bill"
+      >
+        <div className="modal-form">
+          <div className="form-group">
+            <label className="form-label">Member</label>
+            <select
+              className="form-input"
+              value={form.member_id}
+              onChange={e => setForm({ ...form, member_id: e.target.value })}
+            >
+              <option value="">Select Member</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Amount (₹)</label>
+            <input
+              type="number"
+              className="form-input"
+              placeholder="e.g. 2000"
+              value={form.amount}
+              onChange={e => setForm({ ...form, amount: e.target.value })}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Month</label>
+            <input
+              type="month"
+              className="form-input"
+              value={form.month}
+              onChange={e => setForm({ ...form, month: e.target.value })}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Due Date</label>
+            <input
+              type="date"
+              className="form-input"
+              value={form.due_date}
+              onChange={e => setForm({ ...form, due_date: e.target.value })}
+            />
+          </div>
+          <button className="btn btn-primary btn-full" onClick={handleAdd}>
+            Add Bill
+          </button>
+        </div>
+      </Modal>
+    </div>
+  )
+}

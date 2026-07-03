@@ -1,0 +1,104 @@
+import { useEffect, lazy, Suspense } from 'react'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { Toaster } from 'react-hot-toast'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar'
+import Layout from './components/Layout'
+import ProtectedRoute from './components/ProtectedRoute'
+import Loader from './components/Loader'
+
+// Lazy-load pages for faster initial load
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const SetupPage = lazy(() => import('./pages/SetupPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const MenuPage = lazy(() => import('./pages/MenuPage'))
+const MealLogPage = lazy(() => import('./pages/MealLogPage'))
+const ExpensePage = lazy(() => import('./pages/ExpensePage'))
+const BillsPage = lazy(() => import('./pages/BillsPage'))
+const BudgetPage = lazy(() => import('./pages/BudgetPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+
+function PageLoader() {
+  return (
+    <div className="page-loader" style={{ minHeight: '60vh' }}>
+      <Loader />
+    </div>
+  )
+}
+
+function App() {
+  // Initialize native platform features
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setBackgroundColor({ color: '#0a0a0f' })
+      StatusBar.setStyle({ style: Style.Dark })
+    }
+  }, [])
+
+  return (
+    <HashRouter>
+      <AuthProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#1a1a2e',
+              color: '#f0f0f5',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '12px',
+              fontSize: '0.9rem',
+              fontFamily: 'Inter, sans-serif',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            },
+            success: {
+              iconTheme: { primary: '#10b981', secondary: '#f0f0f5' },
+            },
+            error: {
+              iconTheme: { primary: '#ef4444', secondary: '#f0f0f5' },
+            },
+          }}
+        />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/setup" element={<SetupPage />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/menu" element={<MenuPage />} />
+              <Route path="/meals" element={<MealLogPage />} />
+              <Route
+                path="/expenses"
+                element={
+                  <ProtectedRoute requiredRole={['admin', 'representative']}>
+                    <ExpensePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/bills" element={<BillsPage />} />
+              <Route path="/budget" element={<BudgetPage />} />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute requiredRole={['admin']}>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </HashRouter>
+  )
+}
+
+export default App

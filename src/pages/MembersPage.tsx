@@ -164,7 +164,7 @@ export default function MembersPage() {
             </h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               {members.map(m => (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={m.id} className="member-directory-item">
                   {m.avatar_url ? (
                     <img src={m.avatar_url} alt={m.full_name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} referrerPolicy="no-referrer" />
                   ) : (
@@ -178,7 +178,7 @@ export default function MembersPage() {
                       <Mail size={12} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</span>
                     </div>
                   </div>
-                  <span className={`badge`} style={{ textTransform: 'capitalize', flexShrink: 0 }}>
+                  <span className={`role-badge role-${m.role}`} style={{ flexShrink: 0 }}>
                     {m.role}
                   </span>
                 </div>

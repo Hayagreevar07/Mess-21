@@ -1205,6 +1205,10 @@ select.form-input option {
   font-weight: 700;
   font-size: 0.9rem;
   color: var(--primary-light);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 /* ============================================
@@ -2953,3 +2957,48 @@ div[role="status"] {
 
 .show-on-mobile { display: none; }
 @media (max-width: 768px) { .show-on-mobile { display: flex; } .hide-on-mobile { display: none !important; } }
+
+/* --- Mobile Native Layout Adjustments --- */
+.member-directory-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 480px) {
+  .member-directory-item {
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .meal-log-page {
+    padding-bottom: 180px !important; /* Ensure last items aren't hidden under summary bar */
+  }
+}
+
+@media (max-width: 480px) {
+  .menu-item-actions {
+    gap: 10px !important; /* wider spacing for mobile tap */
+  }
+  .menu-item-actions .btn-icon {
+    width: 38px !important; /* larger touch target */
+    height: 38px !important;
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}

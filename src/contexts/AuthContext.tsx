@@ -39,31 +39,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsProfile, setNeedsProfile] = useState(false)
 
   const fetchProfile = async (uid: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .single()
+    try {
+      // 6-second timeout for database fetch on mobile startup
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .single()
 
-    if (data && !error) {
-      setProfile(data as Profile)
-      setNeedsProfile(false)
-    } else {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 6000)
+      )
+
+      const { data, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any
+
+      if (data && !error) {
+        setProfile(data as Profile)
+        setNeedsProfile(false)
+      } else {
+        setProfile(null)
+        setNeedsProfile(true)
+      }
+    } catch (err) {
+      console.error('fetchProfile error:', err)
       setProfile(null)
-      setNeedsProfile(true)
+      // If we fail to fetch (e.g. offline), don't lock on setup page
+      setNeedsProfile(false)
     }
   }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser)
-      if (firebaseUser) {
-        await fetchProfile(firebaseUser.uid)
-      } else {
-        setProfile(null)
-        setNeedsProfile(false)
+      try {
+        setUser(firebaseUser)
+        if (firebaseUser) {
+          await fetchProfile(firebaseUser.uid)
+        } else {
+          setProfile(null)
+          setNeedsProfile(false)
+        }
+      } catch (err) {
+        console.error('onAuthStateChanged error:', err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })
     return () => unsubscribe()
   }, [])

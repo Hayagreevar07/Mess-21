@@ -67,7 +67,7 @@ export default function DashboardPage() {
         .from('profiles')
         .select('*', { count: 'exact', head: true })
       if (role === 'representative' && profile) {
-        memberQuery = memberQuery.eq('rep_id', profile.id)
+        memberQuery = memberQuery.or(`rep_id.eq.${profile.id},id.eq.${profile.id}`)
       }
       const { count: memberCount } = await memberQuery
 
@@ -94,7 +94,7 @@ export default function DashboardPage() {
         const { data: repMembers } = await supabase
           .from('profiles')
           .select('id')
-          .eq('rep_id', profile.id)
+          .or(`rep_id.eq.${profile.id},id.eq.${profile.id}`)
         repMemberIds = repMembers?.map(m => m.id) || []
       }
 

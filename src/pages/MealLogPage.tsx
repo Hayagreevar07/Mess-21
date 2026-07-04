@@ -95,10 +95,10 @@ export default function MealLogPage() {
       .order('category')
       .order('name')
 
-    // For reps, only fetch their own members; for admin, fetch all
+    // For reps, only fetch their own members and themselves; for admin, fetch all
     let profilesQuery = supabase.from('profiles').select('*').order('full_name')
     if (role === 'representative' && profile) {
-      profilesQuery = profilesQuery.eq('rep_id', profile.id)
+      profilesQuery = profilesQuery.or(`rep_id.eq.${profile.id},id.eq.${profile.id}`)
     }
     const { data: profiles } = await profilesQuery
 

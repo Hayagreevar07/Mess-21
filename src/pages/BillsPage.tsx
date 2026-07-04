@@ -36,8 +36,8 @@ export default function BillsPage() {
             .order('due_date', { ascending: false })
 
     let memberQuery = supabase.from('profiles').select('*').order('full_name')
-    if (role === 'representative') {
-      memberQuery = memberQuery.eq('rep_id', profile?.id)
+    if (role === 'representative' && profile) {
+      memberQuery = memberQuery.or(`rep_id.eq.${profile.id},id.eq.${profile.id}`)
     }
 
     const mealQuery =

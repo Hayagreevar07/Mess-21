@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { CreditCard, Plus, Check, Clock, AlertCircle } from 'lucide-react'
+import { CreditCard, Plus, Check, Clock, AlertCircle, Utensils } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function BillsPage() {
@@ -40,19 +40,66 @@ export default function BillsPage() {
       memberQuery = memberQuery.eq('rep_id', profile?.id)
     }
 
-    const [{ data: billData }, { data: memberData }] = await Promise.all([
+    const mealQuery =
+      role === 'member'
+        ? supabase
+            .from('meal_logs')
+            .select('member_id, date, quantity, menu_item:menu_items(price), member:profiles(full_name)')
+            .eq('member_id', profile?.id)
+        : supabase
+            .from('meal_logs')
+            .select('member_id, date, quantity, menu_item:menu_items(price), member:profiles(full_name)')
+
+    const [{ data: billData }, { data: memberData }, { data: mealData }] = await Promise.all([
       billQuery,
       memberQuery,
+      mealQuery,
     ])
     
     let filteredBills = billData || []
+    let filteredMeals = mealData || []
+
     if (role === 'representative') {
       // bill.member.rep_id is not directly selected, so let's filter using the members list
       const memberIds = (memberData || []).map(m => m.id)
       filteredBills = filteredBills.filter(b => memberIds.includes(b.member_id))
+      filteredMeals = filteredMeals.filter(m => memberIds.includes(m.member_id))
     }
     
-    setBills(filteredBills)
+    // Calculate monthly meal bills
+    const mealBillsMap: Record<string, any> = {}
+    filteredMeals.forEach((log: any) => {
+      if (!log.date || !log.menu_item) return;
+      
+      const month = log.date.substring(0, 7) // "YYYY-MM"
+      const memberId = log.member_id
+      const key = `${memberId}_${month}`
+      
+      if (!mealBillsMap[key]) {
+        mealBillsMap[key] = {
+          id: `meal_bill_${key}`,
+          member_id: memberId,
+          amount: 0,
+          month: month,
+          due_date: `${month}-28`, // Display purposes
+          is_paid: false,
+          is_meal_bill: true,
+          member: log.member
+        }
+      }
+      
+      const price = log.menu_item.price || 0
+      mealBillsMap[key].amount += (log.quantity * price)
+    })
+    
+    const mealBillsArray = Object.values(mealBillsMap)
+    const allBills = [...filteredBills, ...mealBillsArray].sort((a, b) => {
+      // Sort by month (desc) then by amount (desc)
+      if (a.month !== b.month) return b.month.localeCompare(a.month)
+      return b.amount - a.amount
+    })
+    
+    setBills(allBills)
     setMembers(memberData || [])
     setLoading(false)
   }
@@ -146,16 +193,15 @@ export default function BillsPage() {
                 className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
               >
                 <div className="bill-status-icon">
-                  {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
+                  {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
                 </div>
                 <div className="bill-info">
                   <span className="bill-member">
-                    {bill.member?.full_name}
+                    {bill.member?.full_name} {bill.is_meal_bill && <span style={{fontSize: '0.8rem', opacity: 0.7}}>(Meal Bill)</span>}
                   </span>
                   <span className="bill-meta">
-                    {bill.month} · Due:{' '}
-                    {new Date(bill.due_date).toLocaleDateString('en-IN')}
-                    {!bill.is_paid &&
+                    {bill.month} · {bill.is_meal_bill ? 'Updates daily' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
+                    {!bill.is_paid && !bill.is_meal_bill &&
                       new Date(bill.due_date) < new Date() && (
                         <span className="bill-overdue">
                           <AlertCircle size={12} /> Overdue
@@ -182,13 +228,12 @@ export default function BillsPage() {
                       style={{ margin: 0 }}
                     >
                       <div className="bill-status-icon">
-                        {bill.is_paid ? <Check size={18} /> : <Clock size={18} />}
+                        {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
                       </div>
                       <div className="bill-info">
                         <span className="bill-meta">
-                          {bill.month} · Due:{' '}
-                          {new Date(bill.due_date).toLocaleDateString('en-IN')}
-                          {!bill.is_paid &&
+                          {bill.month} · {bill.is_meal_bill ? 'Updates daily (Meal Bill)' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
+                          {!bill.is_paid && !bill.is_meal_bill &&
                             new Date(bill.due_date) < new Date() && (
                               <span className="bill-overdue">
                                 <AlertCircle size={12} /> Overdue
@@ -199,7 +244,7 @@ export default function BillsPage() {
                       <span className="bill-amount">
                         ₹{Number(bill.amount).toLocaleString()}
                       </span>
-                      {!bill.is_paid && (
+                      {!bill.is_paid && !bill.is_meal_bill && (
                         <button
                           className="btn btn-sm btn-success"
                           onClick={() => markPaid(bill.id)}

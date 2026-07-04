@@ -114,10 +114,22 @@ export default function DashboardPage() {
           .select('quantity, menu_item:menu_items(price)')
           .eq('member_id', profile.id)
           .gte('date', monthStart)
-        mySpend = myMeals?.reduce((sum, m) => {
+          
+        const mealSpend = myMeals?.reduce((sum, m) => {
           const price = Number((m.menu_item as any)?.price) || 0
           return sum + price * m.quantity
         }, 0) || 0
+        
+        const currentMonthStr = new Date().toISOString().slice(0, 7)
+        const { data: myBills } = await supabase
+          .from('due_bills')
+          .select('amount')
+          .eq('member_id', profile.id)
+          .eq('month', currentMonthStr)
+          
+        const billsSpend = myBills?.reduce((sum, b) => sum + (Number(b.amount) || 0), 0) || 0
+        
+        mySpend = mealSpend + billsSpend
       }
 
       let recentQuery = supabase

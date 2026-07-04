@@ -35,32 +35,45 @@ export default function BudgetPage() {
       .toISOString()
       .split('T')[0]
 
-    const { data } = await supabase
+    const { data: mealData } = await supabase
       .from('meal_logs')
       .select('quantity, menu_item:menu_items(name, price)')
       .eq('member_id', profile.id)
       .gte('date', monthStart)
 
-    if (data) {
-      const totalSpent = data.reduce((sum, m) => {
-        const price = Number((m.menu_item as any)?.price) || 0
-        return sum + price * m.quantity
-      }, 0)
-      setSpent(totalSpent)
+    const currentMonthStr = new Date().toISOString().slice(0, 7) // YYYY-MM
+    const { data: billsData } = await supabase
+      .from('due_bills')
+      .select('amount')
+      .eq('member_id', profile.id)
+      .eq('month', currentMonthStr)
 
-      // Build breakdown
-      const breakdown: Record<string, number> = {}
-      data.forEach(m => {
+    let totalSpent = 0
+    const breakdown: Record<string, number> = {}
+
+    if (mealData) {
+      mealData.forEach(m => {
         const name = (m.menu_item as any)?.name || 'Unknown'
         const amount = (Number((m.menu_item as any)?.price) || 0) * m.quantity
+        totalSpent += amount
         breakdown[name] = (breakdown[name] || 0) + amount
       })
-      setMealBreakdown(
-        Object.entries(breakdown)
-          .map(([name, total]) => ({ name, total }))
-          .sort((a, b) => b.total - a.total)
-      )
     }
+
+    if (billsData) {
+      billsData.forEach(b => {
+        const amount = Number(b.amount) || 0
+        totalSpent += amount
+        breakdown['Manual Bills'] = (breakdown['Manual Bills'] || 0) + amount
+      })
+    }
+
+    setSpent(totalSpent)
+    setMealBreakdown(
+      Object.entries(breakdown)
+        .map(([name, total]) => ({ name, total }))
+        .sort((a, b) => b.total - a.total)
+    )
     setLoading(false)
   }
 

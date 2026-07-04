@@ -85,12 +85,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Hide scrollbars for native feel */
-::-webkit-scrollbar {
-  display: none;
-}
+/* Native scrollbars setup */
 * {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
 }
 
 html {
@@ -1852,11 +1850,17 @@ select.form-input option {
   padding: 60px 24px;
   text-align: center;
   color: var(--text-muted);
-  gap: 16px;
+}
+
+@keyframes floatPulse {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
+  50% { transform: translateY(-8px) scale(1.05); opacity: 1; color: var(--primary); }
 }
 
 .empty-state svg {
-  opacity: 0.3;
+  margin-bottom: 16px;
+  opacity: 0.7;
+  animation: floatPulse 4s infinite ease-in-out;
 }
 
 .empty-state p {
@@ -3021,3 +3025,10 @@ div[role="status"] {
   font-weight: 600;
   line-height: 1;
 }
+
+
+/* --- Aesthetic Enhancements --- */
+.btn:active, .card:active, .glass-card:active { transform: scale(0.97) !important; transition: transform 0.1s ease !important; }
+.glass-card { transition: all 0.3s ease; }
+.glass-card:hover { box-shadow: 0 12px 40px rgba(16, 185, 129, 0.12) !important; border-color: rgba(16, 185, 129, 0.25) !important; }
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { MenuItem, MealType, Profile } from '../lib/types'
@@ -30,6 +30,29 @@ function getFoodEmoji(name: string): string {
   }
   return '🍽️'
 }
+
+const MenuItemCard = React.memo(({ item, qty, onUpdate }: { item: MenuItem, qty: number, onUpdate: (id: string, delta: number) => void }) => {
+  return (
+    <div className={`menu-item-card ${qty > 0 ? 'selected' : ''}`}>
+      <span className="menu-item-emoji">{getFoodEmoji(item.name)}</span>
+      <div className="menu-item-info">
+        <span className="menu-item-name">{item.name}</span>
+        <span className="menu-item-price">₹{item.price}</span>
+      </div>
+      <div className="menu-item-actions">
+        {qty > 0 && (
+          <button className="btn-icon" onClick={() => onUpdate(item.id, -1)}>
+            <Minus size={16} />
+          </button>
+        )}
+        <span className="menu-item-qty">{qty}</span>
+        <button className="btn-icon btn-primary" onClick={() => onUpdate(item.id, 1)}>
+          <Plus size={16} />
+        </button>
+      </div>
+    </div>
+  )
+})
 
 export default function MealLogPage() {
   const { profile, role } = useAuth()
@@ -102,7 +125,7 @@ export default function MealLogPage() {
     setCart(cartFromLogs)
   }
 
-  const updateCart = (itemId: string, delta: number) => {
+  const updateCart = useCallback((itemId: string, delta: number) => {
     setCart(prev => {
       const newQty = Math.max(0, (prev[itemId] || 0) + delta)
       if (newQty === 0) {
@@ -111,7 +134,7 @@ export default function MealLogPage() {
       }
       return { ...prev, [itemId]: newQty }
     })
-  }
+  }, [])
 
   const handleSave = async () => {
     if (!selectedMember) return toast.error('Select a member')
@@ -254,35 +277,12 @@ export default function MealLogPage() {
 
       <div className="menu-grid meal-grid">
         {filteredItems.map(item => (
-          <div
-            key={item.id}
-            className={`menu-item-card ${cart[item.id] ? 'selected' : ''}`}
-          >
-            <span className="menu-item-emoji">{getFoodEmoji(item.name)}</span>
-            <div className="menu-item-info">
-              <span className="menu-item-name">{item.name}</span>
-              <span className="menu-item-price">₹{item.price}</span>
-            </div>
-            <div className="menu-item-actions">
-              {(cart[item.id] || 0) > 0 && (
-                <button
-                  className="btn-icon"
-                  onClick={() => updateCart(item.id, -1)}
-                >
-                  <Minus size={16} />
-                </button>
-              )}
-              <span className="menu-item-qty">
-                {cart[item.id] || 0}
-              </span>
-              <button
-                className="btn-icon btn-primary"
-                onClick={() => updateCart(item.id, 1)}
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
+          <MenuItemCard 
+            key={item.id} 
+            item={item} 
+            qty={cart[item.id] || 0} 
+            onUpdate={updateCart} 
+          />
         ))}
       </div>
 

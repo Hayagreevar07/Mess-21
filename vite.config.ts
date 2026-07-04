@@ -71,6 +71,16 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     sourcemap: false,
     target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react')) return 'vendor';
+          if (id.includes('node_modules/firebase')) return 'firebase';
+          if (id.includes('node_modules/@supabase')) return 'supabase';
+          if (id.includes('node_modules/lucide-react')) return 'ui';
+        }
+      }
+    }
   },
   server: {
     port: 5173,

@@ -189,7 +189,7 @@ img {
     margin-left: 0;
     padding: 12px; /* reduced for mobile edge feel */
     padding-top: calc(var(--header-height) + 12px);
-    padding-bottom: calc(var(--bottom-nav-height) + 24px);
+    padding-bottom: calc(var(--bottom-nav-height) + 160px);
   }
 }
 
@@ -2840,6 +2840,18 @@ div[role="status"] {
   animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+@media (max-width: 768px) {
+  .meal-summary-bar {
+    bottom: calc(var(--bottom-nav-height) + 12px);
+    left: 16px;
+    right: 16px;
+    transform: none;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    text-align: center;
+  }
+}
 /* --- Auth Page Logo Pulse --- */
 
 .auth-logo {

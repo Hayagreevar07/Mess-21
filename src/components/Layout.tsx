@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 
@@ -10,7 +11,23 @@ export default function Layout() {
     <div className="app-layout">
       {/* Mobile Header */}
       <header className="mobile-header">
-        <div style={{ width: '34px' }}></div>
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{ 
+            width: '34px', 
+            height: '34px',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: 0
+          }}
+        >
+          <Menu size={24} />
+        </button>
         <div className="mobile-header-logo">
           <div style={{
             width: 24,

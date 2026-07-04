@@ -169,6 +169,8 @@ img {
   display: flex;
   min-height: 100vh;
   background: var(--gradient-bg);
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .main-content {
@@ -178,6 +180,8 @@ img {
   padding-bottom: 24px;
   min-height: 100vh;
   position: relative;
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -487,6 +491,7 @@ img {
 
 .page {
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   animation: fadeInUp 0.4s ease-out;
 }

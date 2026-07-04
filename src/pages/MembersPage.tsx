@@ -179,7 +179,7 @@ export default function MembersPage() {
                     </div>
                   </div>
                   <span className={`role-badge role-${m.role}`} style={{ flexShrink: 0 }}>
-                    {m.role}
+                    {m.role === 'representative' ? 'Rep' : m.role}
                   </span>
                 </div>
               ))}

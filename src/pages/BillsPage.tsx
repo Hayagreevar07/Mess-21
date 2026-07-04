@@ -10,6 +10,7 @@ export default function BillsPage() {
   const [bills, setBills] = useState<any[]>([])
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [groupMealTotal, setGroupMealTotal] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState({
     member_id: '',
@@ -84,12 +85,22 @@ export default function BillsPage() {
           due_date: `${month}-28`, // Display purposes
           is_paid: false,
           is_meal_bill: true,
-          member: log.member
+          member: log.member,
+          breakdown: {}
         }
       }
       
       const price = log.menu_item.price || 0
-      mealBillsMap[key].amount += (log.quantity * price)
+      const itemName = log.menu_item.name || 'Unknown'
+      const itemCost = log.quantity * price
+      
+      if (!mealBillsMap[key].breakdown[itemName]) {
+        mealBillsMap[key].breakdown[itemName] = { qty: 0, total: 0 }
+      }
+      
+      mealBillsMap[key].breakdown[itemName].qty += log.quantity
+      mealBillsMap[key].breakdown[itemName].total += itemCost
+      mealBillsMap[key].amount += itemCost
     })
     
     const mealBillsArray = Object.values(mealBillsMap)
@@ -99,6 +110,12 @@ export default function BillsPage() {
       return b.amount - a.amount
     })
     
+    const currentMonth = new Date().toISOString().slice(0, 7)
+    const totalGroupMeals = mealBillsArray
+      .filter(b => b.month === currentMonth)
+      .reduce((sum, b) => sum + b.amount, 0)
+    
+    setGroupMealTotal(totalGroupMeals)
     setBills(allBills)
     setMembers(memberData || [])
     setLoading(false)
@@ -171,6 +188,18 @@ export default function BillsPage() {
         )}
       </div>
 
+      {(role === 'admin' || role === 'representative') && (
+        <div className="card glass-card" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-light)' }}>Group Meal Total</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>For {new Date().toISOString().slice(0, 7)}</p>
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--primary-light)' }}>
+            ₹{groupMealTotal.toLocaleString()}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="page-loader">
           <div className="loader">
@@ -192,26 +221,38 @@ export default function BillsPage() {
                 key={bill.id}
                 className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
               >
-                <div className="bill-status-icon">
-                  {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
-                </div>
-                <div className="bill-info">
-                  <span className="bill-member">
-                    {bill.member?.full_name} {bill.is_meal_bill && <span style={{fontSize: '0.8rem', opacity: 0.7}}>(Meal Bill)</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="bill-status-icon">
+                    {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
+                  </div>
+                  <div className="bill-info">
+                    <span className="bill-member">
+                      {bill.member?.full_name} {bill.is_meal_bill && <span style={{fontSize: '0.8rem', opacity: 0.7}}>(Meal Bill)</span>}
+                    </span>
+                    <span className="bill-meta">
+                      {bill.month} · {bill.is_meal_bill ? 'Updates daily' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
+                      {!bill.is_paid && !bill.is_meal_bill &&
+                        new Date(bill.due_date) < new Date() && (
+                          <span className="bill-overdue">
+                            <AlertCircle size={12} /> Overdue
+                          </span>
+                        )}
+                    </span>
+                  </div>
+                  <span className="bill-amount" style={{ marginLeft: 'auto' }}>
+                    ₹{Number(bill.amount).toLocaleString()}
                   </span>
-                  <span className="bill-meta">
-                    {bill.month} · {bill.is_meal_bill ? 'Updates daily' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
-                    {!bill.is_paid && !bill.is_meal_bill &&
-                      new Date(bill.due_date) < new Date() && (
-                        <span className="bill-overdue">
-                          <AlertCircle size={12} /> Overdue
-                        </span>
-                      )}
-                  </span>
                 </div>
-                <span className="bill-amount">
-                  ₹{Number(bill.amount).toLocaleString()}
-                </span>
+                {bill.is_meal_bill && bill.breakdown && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {Object.entries(bill.breakdown).map(([itemName, data]: [string, any]) => (
+                      <div key={itemName} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span>{itemName} × {data.qty}</span>
+                        <span>₹{data.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           ) : (
@@ -227,30 +268,43 @@ export default function BillsPage() {
                       className={`bill-card ${bill.is_paid ? 'paid' : 'pending'}`}
                       style={{ margin: 0 }}
                     >
-                      <div className="bill-status-icon">
-                        {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
-                      </div>
-                      <div className="bill-info">
-                        <span className="bill-meta">
-                          {bill.month} · {bill.is_meal_bill ? 'Updates daily (Meal Bill)' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
-                          {!bill.is_paid && !bill.is_meal_bill &&
-                            new Date(bill.due_date) < new Date() && (
-                              <span className="bill-overdue">
-                                <AlertCircle size={12} /> Overdue
-                              </span>
-                            )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div className="bill-status-icon">
+                          {bill.is_meal_bill ? <Utensils size={18} /> : (bill.is_paid ? <Check size={18} /> : <Clock size={18} />)}
+                        </div>
+                        <div className="bill-info" style={{ flex: 1, minWidth: '150px' }}>
+                          <span className="bill-meta">
+                            {bill.month} · {bill.is_meal_bill ? 'Updates daily (Meal Bill)' : `Due: ${new Date(bill.due_date).toLocaleDateString('en-IN')}`}
+                            {!bill.is_paid && !bill.is_meal_bill &&
+                              new Date(bill.due_date) < new Date() && (
+                                <span className="bill-overdue">
+                                  <AlertCircle size={12} /> Overdue
+                                </span>
+                              )}
+                          </span>
+                        </div>
+                        <span className="bill-amount">
+                          ₹{Number(bill.amount).toLocaleString()}
                         </span>
+                        {!bill.is_paid && !bill.is_meal_bill && (
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={() => markPaid(bill.id)}
+                            style={{ marginLeft: 'auto' }}
+                          >
+                            <Check size={14} /> Paid
+                          </button>
+                        )}
                       </div>
-                      <span className="bill-amount">
-                        ₹{Number(bill.amount).toLocaleString()}
-                      </span>
-                      {!bill.is_paid && !bill.is_meal_bill && (
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => markPaid(bill.id)}
-                        >
-                          <Check size={14} /> Paid
-                        </button>
+                      {bill.is_meal_bill && bill.breakdown && (
+                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          {Object.entries(bill.breakdown).map(([itemName, data]: [string, any]) => (
+                            <div key={itemName} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span>{itemName} × {data.qty}</span>
+                              <span>₹{data.total}</span>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   ))}

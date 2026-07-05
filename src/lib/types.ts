@@ -11,6 +11,7 @@ export interface Profile {
   role: Role
   rep_id?: string
   avatar_url?: string
+  fcm_token?: string
   created_at: string
 }
 

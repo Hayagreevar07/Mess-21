@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getLocalMonthString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PiggyBank, TrendingUp, TrendingDown, Target, Save } from 'lucide-react'
@@ -27,13 +28,8 @@ export default function BudgetPage() {
 
   const fetchSpending = async () => {
     if (!profile) return
-    const monthStart = new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
-      1
-    )
-      .toISOString()
-      .split('T')[0]
+    const d = new Date()
+    const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 
     const { data: mealData } = await supabase
       .from('meal_logs')
@@ -41,7 +37,7 @@ export default function BudgetPage() {
       .eq('member_id', profile.id)
       .gte('date', monthStart)
 
-    const currentMonthStr = new Date().toISOString().slice(0, 7) // YYYY-MM
+    const currentMonthStr = getLocalMonthString() // YYYY-MM
     const { data: billsData } = await supabase
       .from('due_bills')
       .select('amount')

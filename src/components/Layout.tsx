@@ -111,7 +111,7 @@ export default function Layout() {
           </PageTransition>
         </AnimatePresence>
       </main>
-      <BottomNav pendingTaskCount={pendingTaskCount} />
+      <BottomNav />
       <UpdateBanner />
     </div>
   )

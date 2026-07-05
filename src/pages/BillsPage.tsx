@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
@@ -22,7 +23,7 @@ interface Settlement {
 
 export default function BillsPage() {
   const { profile, role } = useAuth()
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [selectedMonth, setSelectedMonth] = useState(getLocalMonthString())
   const [settlements, setSettlements] = useState<Settlement[]>([])
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,18 +62,21 @@ export default function BillsPage() {
 
     // 2. Date ranges
     const startOfMonth = `${selectedMonth}-01`
-    const d = new Date(`${selectedMonth}-01`)
-    d.setMonth(d.getMonth() + 1)
-    d.setDate(0)
-    const endOfMonth = d.toISOString().split('T')[0]
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const lastDay = new Date(year, month, 0).getDate()
+    const endOfMonth = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
 
     // 3. Fetch Meal Logs
-    const { data: mealData } = await supabase
+    let mealQuery = supabase
       .from('meal_logs')
       .select('member_id, date, quantity, menu_item:menu_items(name, price)')
-      .in('member_id', memberIds)
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
+
+    if (role !== 'admin') {
+      mealQuery = mealQuery.in('member_id', memberIds)
+    }
+    const { data: mealData } = await mealQuery
 
     // 4. Fetch Expenses & Calculate Share
     const { data: expenseData } = await supabase
@@ -91,21 +95,29 @@ export default function BillsPage() {
     const expenseShare = totalActiveMembers ? totalMessExpenses / totalActiveMembers : 0
 
     // 5. Fetch Manual Due Bills
-    const { data: billsData } = await supabase
+    let billsQuery = supabase
       .from('due_bills')
       .select('*')
-      .in('member_id', memberIds)
       .eq('month', selectedMonth)
+
+    if (role !== 'admin') {
+      billsQuery = billsQuery.in('member_id', memberIds)
+    }
+    const { data: billsData } = await billsQuery
 
     // 6. Fetch Transactions (Payments)
     // We look for completed mess_bill transactions where the description contains the selectedMonth
-    const { data: txData } = await supabase
+    let txQuery = supabase
       .from('transactions')
       .select('from_id, amount')
-      .in('from_id', memberIds)
       .eq('type', 'mess_bill')
       .eq('status', 'completed')
       .like('description', `%${selectedMonth}%`)
+
+    if (role !== 'admin') {
+      txQuery = txQuery.in('from_id', memberIds)
+    }
+    const { data: txData } = await txQuery
 
     // Aggregate into Settlements
     const settlementMap: Record<string, Settlement> = {}
@@ -127,11 +139,12 @@ export default function BillsPage() {
 
     // Add meals
     ;(mealData || []).forEach((log: any) => {
-      if (!log.menu_item) return
+      const menuItem = Array.isArray(log.menu_item) ? log.menu_item[0] : log.menu_item;
+      if (!menuItem) return
       const s = settlementMap[log.member_id]
       if (s) {
-        const price = log.menu_item.price || 0
-        const itemName = log.menu_item.name || 'Unknown'
+        const price = Number(menuItem.price) || 0
+        const itemName = menuItem.name || 'Unknown'
         const cost = log.quantity * price
         
         if (!s.mealBreakdown[itemName]) s.mealBreakdown[itemName] = { qty: 0, total: 0 }
@@ -173,9 +186,9 @@ export default function BillsPage() {
   }
 
   const changeMonth = (delta: number) => {
-    const d = new Date(`${selectedMonth}-01`)
-    d.setMonth(d.getMonth() + delta)
-    setSelectedMonth(d.toISOString().slice(0, 7))
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const newDate = new Date(year, month - 1 + delta, 1)
+    setSelectedMonth(getLocalMonthString(newDate))
   }
 
   const handleAddBill = async () => {
@@ -235,7 +248,7 @@ export default function BillsPage() {
     const { error } = await supabase.from('tasks').insert({
       title: `Pay Mess Bill (${selectedMonth}) - ₹${Math.max(0, s.remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
       assigned_to: s.member.id,
-      due_date: new Date().toISOString().split('T')[0],
+      due_date: getLocalDateString(),
       status: 'todo'
     })
     

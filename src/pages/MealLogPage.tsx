@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { getLocalDateString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { MenuItem, MealType, Profile } from '../lib/types'
@@ -60,9 +61,7 @@ export default function MealLogPage() {
   const [members, setMembers] = useState<Profile[]>([])
   const [selectedMember, setSelectedMember] = useState<string>('')
   const [selectedMealType, setSelectedMealType] = useState<MealType>('breakfast')
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
-  )
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString())
   const [cart, setCart] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -186,10 +185,10 @@ export default function MealLogPage() {
   const changeDate = (days: number) => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() + days)
-    setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedDate(getLocalDateString(d))
   }
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+  const isToday = selectedDate === getLocalDateString()
 
   const filteredItems = menuItems.filter(
     item => item.category === selectedMealType || item.category === 'snack'
@@ -248,7 +247,7 @@ export default function MealLogPage() {
           {!isToday && (
             <button
               className="btn btn-sm btn-outline"
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              onClick={() => setSelectedDate(getLocalDateString())}
             >
               Today
             </button>

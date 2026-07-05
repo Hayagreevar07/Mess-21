@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Settings, Save, Users, Shield, UserCheck, UserMinus } from 'lucide-react'
+import { Settings, Save, Users, Shield, UserCheck, UserMinus, DownloadCloud, RefreshCw, Database } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Role } from '../lib/types'
+
+const APP_VERSION = 'v1.0.0'
 
 export default function SettingsPage() {
   const { profile } = useAuth()
@@ -13,6 +15,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [fullName, setFullName] = useState(profile?.full_name || '')
+  
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle')
+  const [latestRelease, setLatestRelease] = useState<any>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -101,6 +106,68 @@ export default function SettingsPage() {
         return Users
       default:
         return UserCheck
+    }
+  }
+
+  const checkForUpdates = async () => {
+    setUpdateStatus('checking')
+    try {
+      const res = await fetch('https://api.github.com/repos/Hayagreevar07/Mess-21/releases/latest')
+      if (!res.ok) throw new Error('No releases found')
+      const data = await res.json()
+      
+      // Simple string comparison for versions
+      if (data.tag_name && data.tag_name !== APP_VERSION) {
+        setLatestRelease(data)
+        setUpdateStatus('available')
+      } else {
+        setUpdateStatus('up-to-date')
+      }
+    } catch (error) {
+      console.error(error)
+      setUpdateStatus('error')
+      toast.error('Failed to check for updates.')
+    }
+  }
+
+  const exportData = async () => {
+    try {
+      const toastId = toast.loading('Exporting data...')
+      
+      const [
+        { data: profiles },
+        { data: meals },
+        { data: expenses },
+        { data: bills },
+        { data: transactions }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('meal_logs').select('*'),
+        supabase.from('expenses').select('*'),
+        supabase.from('due_bills').select('*'),
+        supabase.from('transactions').select('*')
+      ])
+
+      const backup = {
+        timestamp: new Date().toISOString(),
+        profiles,
+        meals,
+        expenses,
+        bills,
+        transactions
+      }
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `mess_backup_${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      
+      toast.success('Backup exported successfully!', { id: toastId })
+    } catch (error: any) {
+      toast.error('Failed to export data: ' + error.message)
     }
   }
 
@@ -213,6 +280,24 @@ export default function SettingsPage() {
       </div>
       )}
 
+      {profile?.role === 'admin' && (
+      <div className="settings-section glass-card" style={{ marginTop: '24px' }}>
+        <h3>
+          <Database size={18} /> Data & Backups
+        </h3>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+          Download a complete snapshot of all mess data (members, meals, expenses, bills, and transactions) as a JSON file.
+        </p>
+        <button
+          className="btn btn-primary"
+          onClick={exportData}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <DownloadCloud size={16} /> Export All Data
+        </button>
+      </div>
+      )}
+
       {/* My Profile Section (For everyone) */}
       <div className="settings-section glass-card" style={{ marginTop: '24px' }}>
         <h3>
@@ -249,6 +334,46 @@ export default function SettingsPage() {
           >
             <UserMinus size={16} /> Delete My Account
           </button>
+        </div>
+      </div>
+
+      {/* App Updates Section */}
+      <div className="settings-section glass-card" style={{ marginTop: '24px' }}>
+        <h3>
+          <DownloadCloud size={18} /> App Updates
+        </h3>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ color: 'var(--text-light)', fontWeight: 500 }}>Current Version: {APP_VERSION}</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              {updateStatus === 'checking' && 'Checking for latest version...'}
+              {updateStatus === 'up-to-date' && 'You are on the latest version!'}
+              {updateStatus === 'error' && 'Could not fetch updates.'}
+              {updateStatus === 'available' && `New version available: ${latestRelease?.tag_name}`}
+            </div>
+          </div>
+          
+          {updateStatus === 'available' ? (
+            <a 
+              href={latestRelease?.assets?.[0]?.browser_download_url || latestRelease?.html_url} 
+              target="_blank" 
+              rel="noreferrer"
+              className="btn btn-success"
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <DownloadCloud size={16} /> Download Update
+            </a>
+          ) : (
+            <button 
+              className="btn btn-secondary" 
+              onClick={checkForUpdates}
+              disabled={updateStatus === 'checking'}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <RefreshCw size={16} className={updateStatus === 'checking' ? 'spin' : ''} /> Check for Updates
+            </button>
+          )}
         </div>
       </div>
     </div>

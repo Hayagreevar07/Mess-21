@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth'
 import { Capacitor } from '@capacitor/core'
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
+import { PushNotifications } from '@capacitor/push-notifications'
 import { auth, googleProvider } from '../lib/firebase'
 import { supabase } from '../lib/supabase'
 import type { Profile, Role } from '../lib/types'
@@ -56,6 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && !error) {
         setProfile(data as Profile)
         setNeedsProfile(false)
+        if (Capacitor.isNativePlatform()) {
+          registerPushNotifications(uid)
+        }
       } else {
         setProfile(null)
         setNeedsProfile(true)
@@ -65,6 +69,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null)
       // If we fail to fetch (e.g. offline), don't lock on setup page
       setNeedsProfile(false)
+    }
+  }
+
+  const registerPushNotifications = async (uid: string) => {
+    try {
+      const permStatus = await PushNotifications.checkPermissions()
+      if (permStatus.receive === 'prompt') {
+        const newStatus = await PushNotifications.requestPermissions()
+        if (newStatus.receive !== 'granted') return
+      } else if (permStatus.receive !== 'granted') {
+        return
+      }
+
+      await PushNotifications.removeAllListeners()
+      await PushNotifications.register()
+
+      PushNotifications.addListener('registration', async (token) => {
+        await supabase.from('profiles').update({ fcm_token: token.value }).eq('id', uid)
+      })
+    } catch (error) {
+      console.error('Push Notifications error:', error)
     }
   }
 

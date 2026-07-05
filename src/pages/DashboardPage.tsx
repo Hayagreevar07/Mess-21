@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import StatCard from '../components/StatCard'
@@ -60,12 +61,9 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const monthStart = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth(),
-        1
-      ).toISOString().split('T')[0]
+      const today = getLocalDateString()
+      const d = new Date()
+      const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 
       // For reps, only count their own members; for admin, count all
       let memberQuery = supabase
@@ -139,7 +137,7 @@ export default function DashboardPage() {
           return sum + price * m.quantity
         }, 0) || 0
         
-        const currentMonthStr = new Date().toISOString().slice(0, 7)
+        const currentMonthStr = getLocalMonthString()
         const { data: myBills } = await supabase
           .from('due_bills')
           .select('amount')
@@ -163,7 +161,7 @@ export default function DashboardPage() {
           return sum + price * m.quantity
         }, 0) || 0
         
-        const currentMonthStr = new Date().toISOString().slice(0, 7)
+        const currentMonthStr = getLocalMonthString()
         const { data: groupBills } = await supabase
           .from('due_bills')
           .select('amount, is_paid')
@@ -206,7 +204,7 @@ export default function DashboardPage() {
       // 7-day trend
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-      const startDateStr = sevenDaysAgo.toISOString().split('T')[0]
+      const startDateStr = getLocalDateString(sevenDaysAgo)
 
       let trendQuery = supabase
         .from('meal_logs')
@@ -224,7 +222,7 @@ export default function DashboardPage() {
       for (let i = 0; i < 7; i++) {
         const d = new Date()
         d.setDate(d.getDate() - i)
-        trendMap[d.toISOString().split('T')[0]] = 0
+        trendMap[getLocalDateString(d)] = 0
       }
       
       trendData?.forEach((log: any) => {

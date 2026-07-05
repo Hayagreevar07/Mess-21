@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
@@ -23,14 +24,14 @@ export default function ExpensePage() {
   const [expenses, setExpenses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [memberCount, setMemberCount] = useState(1)
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [currentMonth, setCurrentMonth] = useState(getLocalMonthString())
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({
     title: '',
     amount: '',
     category: 'Groceries',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
   })
 
   useEffect(() => {
@@ -39,10 +40,9 @@ export default function ExpensePage() {
 
   const fetchExpenses = async () => {
     const startOfMonth = `${currentMonth}-01`
-    const d = new Date(`${currentMonth}-01`)
-    d.setMonth(d.getMonth() + 1)
-    d.setDate(0)
-    const endOfMonth = d.toISOString().split('T')[0]
+    const [year, month] = currentMonth.split('-').map(Number)
+    const lastDay = new Date(year, month, 0).getDate()
+    const endOfMonth = `${currentMonth}-${String(lastDay).padStart(2, '0')}`
 
     let query = supabase
       .from('expenses')
@@ -125,7 +125,7 @@ export default function ExpensePage() {
       title: '',
       amount: '',
       category: 'Groceries',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
     })
   }
 
@@ -133,9 +133,9 @@ export default function ExpensePage() {
   const perMemberShare = totalExpenses / memberCount
 
   const changeMonth = (delta: number) => {
-    const d = new Date(`${currentMonth}-01`)
-    d.setMonth(d.getMonth() + delta)
-    setCurrentMonth(d.toISOString().slice(0, 7))
+    const [year, month] = currentMonth.split('-').map(Number)
+    const newDate = new Date(year, month - 1 + delta, 1)
+    setCurrentMonth(getLocalMonthString(newDate))
   }
 
   return (

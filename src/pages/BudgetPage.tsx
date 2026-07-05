@@ -68,6 +68,26 @@ export default function BudgetPage() {
       })
     }
 
+    // Expense share calculation
+    const { data: allExpenses } = await supabase
+      .from('expenses')
+      .select('amount, added_by_profile:profiles!expenses_added_by_fkey(role)')
+      .gte('date', monthStart)
+    
+    const { count: memberCount } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+    
+    const messExpenses = (allExpenses || []).filter((e: any) => e.added_by_profile?.role !== 'member')
+    const totalMessExpenses = messExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
+    const activeMemberCount = memberCount || 1
+    const expenseShare = totalMessExpenses / activeMemberCount
+    
+    if (expenseShare > 0) {
+      totalSpent += expenseShare
+      breakdown['Mess Expense Share'] = expenseShare
+    }
+
     setSpent(totalSpent)
     setMealBreakdown(
       Object.entries(breakdown)
@@ -212,7 +232,7 @@ export default function BudgetPage() {
                     }}
                   ></div>
                 </div>
-                <span className="breakdown-amount">₹{item.total}</span>
+                <span className="breakdown-amount">₹{Math.round(item.total).toLocaleString()}</span>
               </div>
             ))}
           </div>

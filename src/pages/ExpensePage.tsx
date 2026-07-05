@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { Plus, Receipt, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Receipt, Trash2, Edit2, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const expenseCategories = [
@@ -22,6 +22,8 @@ export default function ExpensePage() {
   const { profile, role } = useAuth()
   const [expenses, setExpenses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [memberCount, setMemberCount] = useState(1)
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -33,29 +35,39 @@ export default function ExpensePage() {
 
   useEffect(() => {
     fetchExpenses()
-  }, [])
+  }, [currentMonth])
 
   const fetchExpenses = async () => {
+    const startOfMonth = `${currentMonth}-01`
+    const d = new Date(`${currentMonth}-01`)
+    d.setMonth(d.getMonth() + 1)
+    d.setDate(0)
+    const endOfMonth = d.toISOString().split('T')[0]
+
     let query = supabase
       .from('expenses')
       .select('*, added_by_profile:profiles!expenses_added_by_fkey(full_name, role)')
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
       .order('date', { ascending: false })
 
     if (role === 'member') {
       query = query.eq('added_by', profile?.id)
     }
 
-    const { data } = await query
+    const [{ data }, { count }] = await Promise.all([
+      query,
+      supabase.from('profiles').select('*', { count: 'exact', head: true })
+    ])
 
     let filteredData = data || []
     
     if (role !== 'member') {
-      // Admins/Reps should only see expenses added by Admins/Reps (Mess Expenses)
-      // They don't see personal expenses of members
       filteredData = filteredData.filter(e => e.added_by_profile?.role !== 'member')
     }
 
     setExpenses(filteredData)
+    setMemberCount(count || 1)
     setLoading(false)
   }
 
@@ -117,9 +129,14 @@ export default function ExpensePage() {
     })
   }
 
-  const totalExpenses = expenses.reduce(
-    (sum, e) => sum + Number(e.amount), 0
-  )
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+  const perMemberShare = totalExpenses / memberCount
+
+  const changeMonth = (delta: number) => {
+    const d = new Date(`${currentMonth}-01`)
+    d.setMonth(d.getMonth() + delta)
+    setCurrentMonth(d.toISOString().slice(0, 7))
+  }
 
   return (
     <div className="page expense-page">
@@ -128,6 +145,7 @@ export default function ExpensePage() {
           <h1>{role === 'member' ? 'My Expenses' : 'Mess Expenses'}</h1>
           <p className="page-subtitle">
             Total: ₹{totalExpenses.toLocaleString()}
+            {role !== 'member' && ` · Share: ₹${perMemberShare.toLocaleString(undefined, { maximumFractionDigits: 0 })}/member`}
           </p>
         </div>
         <button
@@ -137,6 +155,20 @@ export default function ExpensePage() {
         >
           <Plus size={18} /> Add Expense
         </button>
+      </div>
+      
+      <div className="meal-controls" style={{ marginBottom: '20px' }}>
+        <div className="date-navigator" style={{ margin: '0 auto' }}>
+          <button className="btn-icon" onClick={() => changeMonth(-1)}>
+            <ChevronLeft size={20} />
+          </button>
+          <span style={{ fontWeight: 'bold', minWidth: '100px', textAlign: 'center' }}>
+            {new Date(`${currentMonth}-01`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+          </span>
+          <button className="btn-icon" onClick={() => changeMonth(1)}>
+            <ChevronRight size={20} />
+          </button>
+        </div>
       </div>
 
       {loading ? (

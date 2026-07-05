@@ -42,6 +42,8 @@ export default function DashboardPage() {
     pendingBills: 0,
     totalMealsToday: 0,
     myMonthlySpend: 0,
+    groupOwed: 0,
+    groupCollected: 0,
   })
   const [recentMeals, setRecentMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +110,20 @@ export default function DashboardPage() {
       const { count: todayMeals } = await todayMealsQuery
 
       let mySpend = 0
+      let groupOwedTotal = 0
+      let groupCollectedTotal = 0
+
+      // Expense share calculation
+      const { data: allExpenses } = await supabase
+        .from('expenses')
+        .select('amount, added_by_profile:profiles!expenses_added_by_fkey(role)')
+        .gte('date', monthStart)
+      
+      const messExpenses = (allExpenses || []).filter((e: any) => e.added_by_profile?.role !== 'member')
+      const totalMessExpenses = messExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
+      const activeMemberCount = memberCount || 1
+      const expenseShare = totalMessExpenses / activeMemberCount
+
       if (profile) {
         const { data: myMeals } = await supabase
           .from('meal_logs')
@@ -129,7 +145,47 @@ export default function DashboardPage() {
           
         const billsSpend = myBills?.reduce((sum, b) => sum + (Number(b.amount) || 0), 0) || 0
         
-        mySpend = mealSpend + billsSpend
+        mySpend = mealSpend + billsSpend + expenseShare
+      }
+
+      if (role !== 'member' && repMemberIds.length > 0) {
+        const { data: groupMeals } = await supabase
+          .from('meal_logs')
+          .select('quantity, menu_item:menu_items(price)')
+          .in('member_id', repMemberIds)
+          .gte('date', monthStart)
+          
+        const groupMealTotal = groupMeals?.reduce((sum, m) => {
+          const price = Number((m.menu_item as any)?.price) || 0
+          return sum + price * m.quantity
+        }, 0) || 0
+        
+        const currentMonthStr = new Date().toISOString().slice(0, 7)
+        const { data: groupBills } = await supabase
+          .from('due_bills')
+          .select('amount, is_paid')
+          .in('member_id', repMemberIds)
+          .eq('month', currentMonthStr)
+          
+        let manualOwed = 0
+        let manualPaid = 0
+        groupBills?.forEach(b => {
+          if (b.is_paid) manualPaid += Number(b.amount)
+          else manualOwed += Number(b.amount)
+        })
+        
+        const { data: groupTx } = await supabase
+          .from('transactions')
+          .select('amount')
+          .in('from_id', repMemberIds)
+          .eq('type', 'mess_bill')
+          .eq('status', 'completed')
+          .like('description', `%${currentMonthStr}%`)
+          
+        const txPaid = groupTx?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0
+        
+        groupOwedTotal = groupMealTotal + (expenseShare * repMemberIds.length) + manualOwed + manualPaid
+        groupCollectedTotal = manualPaid + txPaid
       }
 
       let recentQuery = supabase
@@ -149,6 +205,8 @@ export default function DashboardPage() {
         pendingBills: pendingCount || 0,
         totalMealsToday: todayMeals || 0,
         myMonthlySpend: mySpend,
+        groupOwed: groupOwedTotal,
+        groupCollected: groupCollectedTotal,
       })
       setRecentMeals(recent || [])
     } catch (err) {
@@ -265,11 +323,18 @@ export default function DashboardPage() {
               icon={TrendingUp}
               color="#10b981"
             />
+            <StatCard
+              title="Group Collection"
+              value={`₹${stats.groupCollected.toLocaleString()} / ₹${stats.groupOwed.toLocaleString()}`}
+              icon={IndianRupee}
+              color="#8b5cf6"
+              subtitle="This month"
+            />
           </>
         )}
         <StatCard
           title="My Spending"
-          value={`₹${stats.myMonthlySpend.toLocaleString()}`}
+          value={`₹${stats.myMonthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           icon={IndianRupee}
           color="#14b8a6"
           subtitle="This month"

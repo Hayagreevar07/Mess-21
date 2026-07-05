@@ -5,6 +5,7 @@ import type { MenuItem, MenuCategory } from '../lib/types'
 import Modal from '../components/Modal'
 import { Plus, Search, UtensilsCrossed, Edit2, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 
 const categories: { value: MenuCategory; label: string; emoji: string }[] = [
   { value: 'breakfast', label: 'Breakfast', emoji: '🌅' },
@@ -196,9 +197,27 @@ export default function MenuPage() {
           )}
         </div>
       ) : (
-        <div className="menu-grid">
+        <motion.div 
+          className="menu-grid"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.05 }
+            }
+          }}
+        >
           {filteredItems.map(item => (
-            <div key={item.id} className="menu-item-card tilt-hover">
+            <motion.div 
+              key={item.id} 
+              className="menu-item-card tilt-hover"
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 }
+              }}
+            >
               <span className="menu-item-emoji">{getFoodEmoji(item.name)}</span>
               <div className="menu-item-info">
                 <span className="menu-item-name">{item.name}</span>
@@ -221,9 +240,9 @@ export default function MenuPage() {
                   </button>
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       <Modal

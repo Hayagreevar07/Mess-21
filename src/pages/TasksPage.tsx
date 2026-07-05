@@ -134,17 +134,21 @@ export default function TasksPage() {
           {tasks.map(task => {
             const isDone = task.status === 'done'
             const isOverdue = !isDone && task.due_date && new Date(task.due_date) < new Date()
+            const isBillingTask = task.title.toLowerCase().includes('pay mess bill')
+            const isUrgent = isOverdue || (isBillingTask && !isDone)
 
             return (
               <div 
                 key={task.id} 
-                className="card tilt-card" 
+                className={`card tilt-card ${isUrgent ? 'urgent-task' : ''}`} 
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '16px',
                   opacity: isDone ? 0.6 : 1,
-                  padding: '16px'
+                  padding: '16px',
+                  border: isUrgent ? '1px solid var(--danger)' : undefined,
+                  background: isUrgent ? 'rgba(239, 68, 68, 0.05)' : undefined
                 }}
               >
                 <button 
@@ -163,10 +167,11 @@ export default function TasksPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ 
                     fontSize: '1rem', 
-                    fontWeight: '500', 
-                    color: 'var(--text-primary)',
+                    fontWeight: isUrgent ? '700' : '500', 
+                    color: isUrgent ? 'var(--danger-light)' : 'var(--text-primary)',
                     textDecoration: isDone ? 'line-through' : 'none'
                   }}>
+                    {isUrgent && !isDone && <span style={{ marginRight: '6px' }}>🚨</span>}
                     {task.title}
                   </div>
                   <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>

@@ -31,9 +31,10 @@ const NAV_EMOJIS: Record<string, string> = {
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void
+  pendingTaskCount?: number
 }
 
-export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen = false, onClose, pendingTaskCount = 0 }: SidebarProps) {
   const { profile, user, signOut } = useAuth()
 
   const navItems = [
@@ -95,7 +96,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             onClick={onClose}
           >
-            <item.icon size={20} />
+            <div style={{ position: 'relative' }}>
+              <item.icon size={20} />
+              {item.to === '/tasks' && pendingTaskCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                  width: 8,
+                  height: 8,
+                  backgroundColor: 'var(--danger)',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 0 2px var(--bg-card)'
+                }} />
+              )}
+            </div>
             <span>{item.label}</span>
             <span style={{ marginLeft: 'auto', fontSize: '0.9rem', opacity: 0.6 }}>
               {NAV_EMOJIS[item.to]}

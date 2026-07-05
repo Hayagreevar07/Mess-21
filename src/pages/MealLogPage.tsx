@@ -125,37 +125,24 @@ export default function MealLogPage() {
     setCart(cartFromLogs)
   }
 
-  const updateCart = useCallback((itemId: string, delta: number) => {
-    setCart(prev => {
-      const newQty = Math.max(0, (prev[itemId] || 0) + delta)
-      if (newQty === 0) {
-        const { [itemId]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [itemId]: newQty }
-    })
-  }, [])
-
-  const handleSave = async () => {
-    if (!selectedMember) return toast.error('Select a member')
+  const saveCartToDb = async (cartState: Record<string, number>, member: string, date: string, type: MealType) => {
     setSaving(true)
-
     try {
       await supabase
         .from('meal_logs')
         .delete()
-        .eq('member_id', selectedMember)
-        .eq('date', selectedDate)
-        .eq('meal_type', selectedMealType)
+        .eq('member_id', member)
+        .eq('date', date)
+        .eq('meal_type', type)
 
-      const entries = Object.entries(cart).filter(([_, qty]) => qty > 0)
+      const entries = Object.entries(cartState).filter(([_, qty]) => qty > 0)
       if (entries.length > 0) {
         const { error } = await supabase.from('meal_logs').insert(
           entries.map(([itemId, qty]) => ({
-            member_id: selectedMember,
+            member_id: member,
             menu_item_id: itemId,
-            meal_type: selectedMealType,
-            date: selectedDate,
+            meal_type: type,
+            date: date,
             quantity: qty,
             logged_by: profile?.id,
           }))
@@ -163,13 +150,37 @@ export default function MealLogPage() {
         if (error) throw error
       }
 
-      toast.success('Meals saved! 🎉')
+      toast.success('Meals updated! 🎉')
       fetchExistingLogs()
     } catch (err: any) {
       toast.error(err.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
+  }
+
+  const updateCart = useCallback((itemId: string, delta: number) => {
+    setCart(prev => {
+      const newQty = Math.max(0, (prev[itemId] || 0) + delta)
+      const newCart = { ...prev }
+      if (newQty === 0) {
+        delete newCart[itemId]
+      } else {
+        newCart[itemId] = newQty
+      }
+      
+      if (delta < 0 && selectedMember) {
+        // Auto-save on minus
+        saveCartToDb(newCart, selectedMember, selectedDate, selectedMealType)
+      }
+      
+      return newCart
+    })
+  }, [selectedMember, selectedDate, selectedMealType, profile])
+
+  const handleSave = () => {
+    if (!selectedMember) return toast.error('Select a member')
+    saveCartToDb(cart, selectedMember, selectedDate, selectedMealType)
   }
 
   const changeDate = (days: number) => {

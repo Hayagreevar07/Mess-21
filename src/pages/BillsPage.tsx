@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { CreditCard, Plus, Check, Clock, Utensils, Receipt, ChevronLeft, ChevronRight, CheckCircle2, DollarSign } from 'lucide-react'
+import { CreditCard, Plus, Check, Clock, Utensils, Receipt, ChevronLeft, ChevronRight, CheckCircle2, DollarSign, Bell } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 
 interface Settlement {
   member: any;
@@ -25,6 +26,8 @@ export default function BillsPage() {
   const [settlements, setSettlements] = useState<Settlement[]>([])
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('all')
+  const [viewType, setViewType] = useState<'group' | 'my'>('group')
   
   const [modalOpen, setModalOpen] = useState(false)
   const [payModalOpen, setPayModalOpen] = useState(false)
@@ -225,6 +228,21 @@ export default function BillsPage() {
     fetchData()
   }
 
+  const handleSendReminder = async (s: Settlement) => {
+    if (s.remaining <= 0) return toast.error('Balance is already settled')
+    
+    // Create a high-priority task for the member
+    const { error } = await supabase.from('tasks').insert({
+      title: `Pay Mess Bill (${selectedMonth}) - ₹${Math.max(0, s.remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      assigned_to: s.member.id,
+      due_date: new Date().toISOString().split('T')[0],
+      status: 'todo'
+    })
+    
+    if (error) return toast.error(error.message)
+    toast.success(`Reminder sent to ${s.member.full_name}! 🔔`)
+  }
+
   const openPaymentModal = (s: Settlement) => {
     setSelectedSettlement(s)
     setPaymentAmount(s.remaining.toString())
@@ -234,6 +252,19 @@ export default function BillsPage() {
   const groupTotalOwed = settlements.reduce((sum, s) => sum + s.totalOwed, 0)
   const groupTotalPaid = settlements.reduce((sum, s) => sum + s.totalPaid, 0)
   const groupRemaining = settlements.reduce((sum, s) => sum + Math.max(0, s.remaining), 0)
+
+  let displayedSettlements = settlements
+  if (role === 'representative' || role === 'admin') {
+    if (viewType === 'my') {
+      displayedSettlements = displayedSettlements.filter(s => s.member.id === profile?.id)
+    }
+  } else {
+    // Regular members only ever see their own
+    displayedSettlements = displayedSettlements.filter(s => s.member.id === profile?.id)
+  }
+
+  if (filter === 'pending') displayedSettlements = displayedSettlements.filter(s => s.remaining > 0)
+  if (filter === 'settled') displayedSettlements = displayedSettlements.filter(s => s.remaining <= 0)
 
   return (
     <div className="page bills-page">
@@ -264,6 +295,23 @@ export default function BillsPage() {
       </div>
 
       {(role === 'admin' || role === 'representative') && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <button 
+            className={`category-tab ${viewType === 'group' ? 'active' : ''}`}
+            onClick={() => setViewType('group')}
+          >
+            👥 Group Bills
+          </button>
+          <button 
+            className={`category-tab ${viewType === 'my' ? 'active' : ''}`}
+            onClick={() => setViewType('my')}
+          >
+            👤 My Bill
+          </button>
+        </div>
+      )}
+
+      {(role === 'admin' || role === 'representative') && viewType === 'group' && (
         <div className="card glass-card" style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between', padding: '20px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-light)' }}>Group Summary</h3>
@@ -296,10 +344,34 @@ export default function BillsPage() {
           <p>No data for this month</p>
         </div>
       ) : (
-        <div className="bills-list" style={{ display: 'grid', gap: '16px' }}>
-          {settlements.map(s => (
-            <div key={s.member.id} className="card tilt-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+        <>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+            <button className={`badge ${filter === 'all' ? 'active' : ''}`} style={{ cursor: 'pointer', background: filter === 'all' ? 'var(--primary)' : 'var(--bg-glass-strong)' }} onClick={() => setFilter('all')}>All</button>
+            <button className={`badge ${filter === 'pending' ? 'active' : ''}`} style={{ cursor: 'pointer', background: filter === 'pending' ? 'var(--warning)' : 'var(--bg-glass-strong)' }} onClick={() => setFilter('pending')}>Pending</button>
+            <button className={`badge ${filter === 'settled' ? 'active' : ''}`} style={{ cursor: 'pointer', background: filter === 'settled' ? 'var(--success)' : 'var(--bg-glass-strong)' }} onClick={() => setFilter('settled')}>Settled</button>
+          </div>
+
+          <motion.div 
+            className="bills-list" 
+            style={{ display: 'grid', gap: '16px' }}
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: { staggerChildren: 0.05 }
+              }
+            }}
+          >
+            {displayedSettlements.map(s => (
+              <motion.div 
+                key={s.member.id} 
+                className="card tilt-card" 
+                style={{ padding: '20px' }}
+                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--primary-light)' }}>{s.member.full_name}</h3>
                   <span className="badge" style={{ marginTop: '8px' }}>
@@ -316,9 +388,16 @@ export default function BillsPage() {
                     ₹{Math.max(0, s.remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </div>
                   {s.remaining > 0 && (
-                    <button className="btn btn-sm btn-primary" style={{ marginTop: '8px' }} onClick={() => openPaymentModal(s)}>
-                      <DollarSign size={14} /> Pay Balance
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                      {(role === 'admin' || role === 'representative') && (
+                        <button className="btn-icon btn-secondary" style={{ padding: '4px 8px' }} onClick={() => handleSendReminder(s)} title="Send Reminder Task">
+                          <Bell size={14} />
+                        </button>
+                      )}
+                      <button className="btn btn-sm btn-primary" onClick={() => openPaymentModal(s)}>
+                        <DollarSign size={14} /> Pay
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -330,7 +409,10 @@ export default function BillsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '6px', borderRadius: '8px', color: 'var(--primary)' }}><Utensils size={14} /></div>
-                    <span>Meal Bill</span>
+                    <span style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>Meal Bill</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Up to today</span>
+                    </span>
                   </div>
                   <span style={{ fontWeight: 600 }}>₹{s.mealTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                 </div>
@@ -383,9 +465,10 @@ export default function BillsPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
+        </>
       )}
 
       {/* Manual Bill Modal */}

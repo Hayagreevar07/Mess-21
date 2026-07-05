@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import StatCard from '../components/StatCard'
+import DashboardChart from '../components/DashboardChart'
+import { motion } from 'framer-motion'
 import {
   IndianRupee,
   UtensilsCrossed,
@@ -44,6 +46,7 @@ export default function DashboardPage() {
     myMonthlySpend: 0,
     groupOwed: 0,
     groupCollected: 0,
+    chartData: [] as any[],
   })
   const [recentMeals, setRecentMeals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -195,8 +198,47 @@ export default function DashboardPage() {
         .limit(5)
       if (role === 'representative' && repMemberIds.length > 0) {
         recentQuery = recentQuery.in('member_id', repMemberIds)
+      } else if (role === 'member' && profile) {
+        recentQuery = recentQuery.eq('member_id', profile.id)
       }
       const { data: recent } = await recentQuery
+
+      // 7-day trend
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+      const startDateStr = sevenDaysAgo.toISOString().split('T')[0]
+
+      let trendQuery = supabase
+        .from('meal_logs')
+        .select('date, quantity, menu_item:menu_items(price)')
+        .gte('date', startDateStr)
+      if (role === 'representative' && repMemberIds.length > 0) {
+        trendQuery = trendQuery.in('member_id', repMemberIds)
+      } else if (role === 'member' && profile) {
+        trendQuery = trendQuery.eq('member_id', profile.id)
+      }
+      
+      const { data: trendData } = await trendQuery
+      
+      const trendMap: Record<string, number> = {}
+      for (let i = 0; i < 7; i++) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        trendMap[d.toISOString().split('T')[0]] = 0
+      }
+      
+      trendData?.forEach((log: any) => {
+        const date = log.date
+        const price = Number(log.menu_item?.price) || 0
+        if (trendMap[date] !== undefined) {
+          trendMap[date] += price * log.quantity
+        }
+      })
+      
+      const chartDataArr = Object.keys(trendMap).sort().map(date => ({
+        date: new Date(date).toLocaleDateString('en-IN', { weekday: 'short' }),
+        amount: trendMap[date]
+      }))
 
       setStats({
         totalMembers: memberCount || 0,
@@ -207,6 +249,7 @@ export default function DashboardPage() {
         myMonthlySpend: mySpend,
         groupOwed: groupOwedTotal,
         groupCollected: groupCollectedTotal,
+        chartData: chartDataArr,
       })
       setRecentMeals(recent || [])
     } catch (err) {
@@ -289,60 +332,95 @@ export default function DashboardPage() {
       <div className="gradient-divider"></div>
 
       {/* Stats Grid */}
-      <div className="stats-grid">
+      <motion.div 
+        className="stats-grid"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.05 }
+          }
+        }}
+      >
         {(role === 'admin' || role === 'representative') && (
           <>
-            <StatCard
-              title="Members"
-              value={stats.totalMembers}
-              icon={Users}
-              color="#10b981"
-            />
-            <StatCard
-              title="Menu Items"
-              value={stats.totalMenuItems}
-              icon={UtensilsCrossed}
-              color="#06b6d4"
-            />
-            <StatCard
-              title="Monthly Expenses"
-              value={`₹${stats.monthlyExpenses.toLocaleString()}`}
-              icon={Receipt}
-              color="#f59e0b"
-            />
-            <StatCard
-              title="Pending Bills"
-              value={stats.pendingBills}
-              icon={CreditCard}
-              color="#ef4444"
-              subtitle={stats.pendingBills > 0 ? '⚠️ Action needed' : '✅ All clear'}
-            />
-            <StatCard
-              title="Meals Today"
-              value={stats.totalMealsToday}
-              icon={TrendingUp}
-              color="#10b981"
-            />
-            <StatCard
-              title="Group Collection"
-              value={`₹${stats.groupCollected.toLocaleString()} / ₹${stats.groupOwed.toLocaleString()}`}
-              icon={IndianRupee}
-              color="#8b5cf6"
-              subtitle="This month"
-            />
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Members"
+                value={stats.totalMembers}
+                icon={Users}
+                color="#10b981"
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Menu Items"
+                value={stats.totalMenuItems}
+                icon={UtensilsCrossed}
+                color="#06b6d4"
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Monthly Expenses"
+                value={`₹${stats.monthlyExpenses.toLocaleString()}`}
+                icon={Receipt}
+                color="#f59e0b"
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Pending Bills"
+                value={stats.pendingBills}
+                icon={CreditCard}
+                color="#ef4444"
+                subtitle={stats.pendingBills > 0 ? '⚠️ Action needed' : '✅ All clear'}
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Meals Today"
+                value={stats.totalMealsToday}
+                icon={TrendingUp}
+                color="#10b981"
+              />
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+              <StatCard
+                title="Group Collection"
+                value={`₹${stats.groupCollected.toLocaleString()} / ₹${stats.groupOwed.toLocaleString()}`}
+                icon={IndianRupee}
+                color="#8b5cf6"
+                subtitle="This month"
+              />
+            </motion.div>
           </>
         )}
-        <StatCard
-          title="My Spending"
-          value={`₹${stats.myMonthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          icon={IndianRupee}
-          color="#14b8a6"
-          subtitle="This month"
-        />
-      </div>
+        <motion.div variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}>
+          <StatCard
+            title="My Spending"
+            value={`₹${stats.myMonthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={IndianRupee}
+            color="#14b8a6"
+            subtitle="This month"
+          />
+        </motion.div>
+      </motion.div>
+
+      <DashboardChart 
+        data={stats.chartData} 
+        title={role === 'member' ? "My 7-Day Trend" : "Group 7-Day Trend"} 
+      />
 
       {/* Recent Activity */}
-      <div className="dashboard-section">
+      <motion.div 
+        className="dashboard-section"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
         <h2>Recent Activity</h2>
         <div className="activity-list">
           {recentMeals.length === 0 ? (
@@ -374,7 +452,7 @@ export default function DashboardPage() {
             ))
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Floating Action Button */}
       {(role === 'admin' || role === 'representative') && (

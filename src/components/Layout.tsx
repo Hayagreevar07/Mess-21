@@ -1,15 +1,33 @@
-import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import UpdateBanner from './UpdateBanner'
+import PageTransition from './PageTransition'
 import { useAuth } from '../contexts/AuthContext'
+import { AnimatePresence } from 'framer-motion'
+import { supabase } from '../lib/supabase'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { profile, user } = useAuth()
   const avatarUrl = user?.photoURL || profile?.avatar_url
+  const location = useLocation()
+  const [pendingTaskCount, setPendingTaskCount] = useState(0)
+
+  useEffect(() => {
+    if (!profile) return
+    const fetchTasks = async () => {
+      const { count } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('assigned_to', profile.id)
+        .neq('status', 'done')
+      setPendingTaskCount(count || 0)
+    }
+    fetchTasks()
+  }, [profile, location.pathname])
 
   return (
     <div className="app-layout">
@@ -27,10 +45,23 @@ export default function Layout() {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            padding: 0
+            padding: 0,
+            position: 'relative'
           }}
         >
           <Menu size={24} />
+          {pendingTaskCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 4,
+              right: 2,
+              width: 8,
+              height: 8,
+              backgroundColor: 'var(--danger)',
+              borderRadius: '50%',
+              boxShadow: '0 0 0 2px var(--bg-card)'
+            }} />
+          )}
         </button>
         <div className="mobile-header-logo">
           <div style={{
@@ -71,12 +102,16 @@ export default function Layout() {
         </div>
       </header>
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} pendingTaskCount={pendingTaskCount} />
       
       <main className="main-content">
-        <Outlet />
+        <AnimatePresence mode="wait">
+          <PageTransition key={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </AnimatePresence>
       </main>
-      <BottomNav />
+      <BottomNav pendingTaskCount={pendingTaskCount} />
       <UpdateBanner />
     </div>
   )

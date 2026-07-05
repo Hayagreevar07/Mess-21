@@ -9,7 +9,11 @@ import {
 
 import { useAuth } from '../contexts/AuthContext'
 
-export default function BottomNav() {
+interface BottomNavProps {
+  pendingTaskCount?: number
+}
+
+export default function BottomNav({ pendingTaskCount = 0 }: BottomNavProps) {
   const { profile } = useAuth()
 
   const navItems = [

@@ -3,9 +3,13 @@ import { Outlet } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
+import UpdateBanner from './UpdateBanner'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { profile, user } = useAuth()
+  const avatarUrl = user?.photoURL || profile?.avatar_url
 
   return (
     <div className="app-layout">
@@ -49,16 +53,21 @@ export default function Layout() {
           width: '32px', 
           height: '32px', 
           borderRadius: '50%', 
-          background: 'var(--bg-glass-strong)', 
+          background: avatarUrl ? 'transparent' : 'var(--bg-glass-strong)', 
           border: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '0.8rem',
           fontWeight: 600,
-          color: 'var(--text-secondary)'
+          color: 'var(--text-secondary)',
+          overflow: 'hidden'
         }}>
-          ?
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+          ) : (
+            profile?.full_name?.charAt(0)?.toUpperCase() ?? '?'
+          )}
         </div>
       </header>
 
@@ -68,6 +77,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <BottomNav />
+      <UpdateBanner />
     </div>
   )
 }

@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
+  CalendarCheck,
   CreditCard,
-  HelpCircle,
-  CheckSquare,
+  ArrowRightLeft,
   Settings
 } from 'lucide-react'
 
@@ -14,9 +14,9 @@ export default function BottomNav() {
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Mess', roles: ['admin', 'representative', 'member'] },
-    { to: '/expenses', icon: CreditCard, label: 'Expense', roles: ['admin', 'representative', 'member'] },
-    { to: '/queries', icon: HelpCircle, label: 'Notes', roles: ['admin', 'representative', 'member'] },
-    { to: '/tasks', icon: CheckSquare, label: 'Todo', roles: ['admin', 'representative', 'member'] },
+    { to: '/meals', icon: CalendarCheck, label: 'Meals', roles: ['admin', 'representative', 'member'] },
+    { to: '/bills', icon: CreditCard, label: 'Bills', roles: ['admin', 'representative', 'member'] },
+    { to: '/transactions', icon: ArrowRightLeft, label: 'Transfers', roles: ['admin', 'representative', 'member'] },
     { to: '/settings', icon: Settings, label: 'More', roles: ['admin', 'representative', 'member'] },
   ]
 

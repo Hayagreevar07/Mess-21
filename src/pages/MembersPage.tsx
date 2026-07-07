@@ -93,6 +93,19 @@ export default function MembersPage() {
     }
   }
 
+  const handleRemoveMember = async (userId: string) => {
+    if (!confirm('Remove this member? This cannot be undone.')) return
+    
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', userId)
+      if (error) throw error
+      toast.success('Member removed')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove member')
+    }
+  }
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     toast.success('PIN copied to clipboard')
@@ -181,6 +194,11 @@ export default function MembersPage() {
                   <span className={`role-badge role-${m.role}`} style={{ flexShrink: 0 }}>
                     {m.role === 'representative' ? 'Rep' : m.role}
                   </span>
+                  {m.id !== profile?.id && profile?.role === 'admin' && (
+                    <button className="btn-icon btn-danger" onClick={() => handleRemoveMember(m.id)} title="Remove Member" style={{ marginLeft: '8px', flexShrink: 0, width: '32px', height: '32px' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

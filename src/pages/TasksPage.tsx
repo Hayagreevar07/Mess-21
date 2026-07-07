@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { Task, Profile } from '../lib/types'
-import { CheckSquare, Plus, Circle, CheckCircle, Clock } from 'lucide-react'
+import { CheckSquare, Plus, Circle, CheckCircle, Clock, Bell, User, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
 
@@ -16,7 +16,9 @@ export default function TasksPage() {
   const [form, setForm] = useState({
     title: '',
     assigned_to: '',
-    due_date: ''
+    due_date: '',
+    type: 'group' as 'group' | 'personal',
+    has_alarm: false
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -50,8 +52,12 @@ export default function TasksPage() {
       if (membersRes.error) throw membersRes.error
 
       let filteredTasks = tasksRes.data as Task[]
+      
+      // Personal tasks are only visible to their assignee
+      filteredTasks = filteredTasks.filter(t => t.type !== 'personal' || t.assigned_to === profile?.id)
+
       if (role === 'representative') {
-        filteredTasks = filteredTasks.filter(t => !t.assigned_to || (t as any).assignee?.rep_id === profile?.id)
+        filteredTasks = filteredTasks.filter(t => !t.assigned_to || (t as any).assignee?.rep_id === profile?.id || t.assigned_to === profile?.id)
       }
 
       setTasks(filteredTasks)
@@ -71,15 +77,17 @@ export default function TasksPage() {
     try {
       const { error } = await supabase.from('tasks').insert({
         title: form.title.trim(),
-        assigned_to: form.assigned_to || null,
+        assigned_to: form.type === 'personal' ? profile?.id : (form.assigned_to || null),
         due_date: form.due_date || null,
+        type: form.type,
+        has_alarm: form.has_alarm,
         status: 'todo'
       })
 
       if (error) throw error
       toast.success('Task created')
       setIsModalOpen(false)
-      setForm({ title: '', assigned_to: '', due_date: '' })
+      setForm({ title: '', assigned_to: '', due_date: '', type: 'group', has_alarm: false })
       fetchData()
     } catch (err: any) {
       toast.error(err.message || 'Failed to create task')
@@ -140,15 +148,15 @@ export default function TasksPage() {
             return (
               <div 
                 key={task.id} 
-                className={`card tilt-card ${isUrgent ? 'urgent-task' : ''}`} 
+                className={`card tilt-card ${isUrgent ? 'urgent-task' : ''} ${task.has_alarm && !isDone ? 'alarm-task' : ''}`} 
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '16px',
                   opacity: isDone ? 0.6 : 1,
                   padding: '16px',
-                  border: isUrgent ? '1px solid var(--danger)' : undefined,
-                  background: isUrgent ? 'rgba(239, 68, 68, 0.05)' : undefined
+                  border: isUrgent || (task.has_alarm && !isDone) ? '1px solid var(--danger)' : undefined,
+                  background: isUrgent || (task.has_alarm && !isDone) ? 'rgba(239, 68, 68, 0.05)' : undefined
                 }}
               >
                 <button 
@@ -167,12 +175,19 @@ export default function TasksPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ 
                     fontSize: '1rem', 
-                    fontWeight: isUrgent ? '700' : '500', 
-                    color: isUrgent ? 'var(--danger-light)' : 'var(--text-primary)',
-                    textDecoration: isDone ? 'line-through' : 'none'
+                    fontWeight: isUrgent || (task.has_alarm && !isDone) ? '700' : '500', 
+                    color: isUrgent || (task.has_alarm && !isDone) ? 'var(--danger-light)' : 'var(--text-primary)',
+                    textDecoration: isDone ? 'line-through' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}>
-                    {isUrgent && !isDone && <span style={{ marginRight: '6px' }}>🚨</span>}
+                    {isUrgent && !isDone && <span>🚨</span>}
+                    {task.has_alarm && !isDone && <Bell size={16} className="pulse-icon" style={{ color: 'var(--danger)' }} />}
                     {task.title}
+                    <span className="badge" style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {task.type === 'personal' ? <><User size={10} /> Personal</> : <><Users size={10} /> Group</>}
+                    </span>
                   </div>
                   <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
                     {task.assigned_to && (
@@ -215,14 +230,29 @@ export default function TasksPage() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Assign To (Optional)</label>
-            <select className="form-input" value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })}>
-              <option value="">Anyone</option>
-              {members.map(m => (
-                <option key={m.id} value={m.id}>{m.full_name}</option>
-              ))}
-            </select>
+            <label className="form-label">Task Type</label>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input type="radio" name="task_type" checked={form.type === 'group'} onChange={() => setForm({...form, type: 'group'})} />
+                <Users size={16} /> Group (Visible to all)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input type="radio" name="task_type" checked={form.type === 'personal'} onChange={() => setForm({...form, type: 'personal'})} />
+                <User size={16} /> Personal (Private)
+              </label>
+            </div>
           </div>
+          {form.type === 'group' && (
+            <div className="form-group">
+              <label className="form-label">Assign To (Optional)</label>
+              <select className="form-input" value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })}>
+                <option value="">Anyone</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Due Date (Optional)</label>
             <input 
@@ -231,6 +261,19 @@ export default function TasksPage() {
               value={form.due_date} 
               onChange={e => setForm({ ...form, due_date: e.target.value })} 
             />
+          </div>
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input 
+              type="checkbox" 
+              id="alarm_checkbox" 
+              checked={form.has_alarm} 
+              onChange={e => setForm({ ...form, has_alarm: e.target.checked })}
+              style={{ width: '18px', height: '18px' }}
+            />
+            <label htmlFor="alarm_checkbox" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <Bell size={16} color={form.has_alarm ? 'var(--danger)' : 'var(--text-muted)'} /> 
+              Enable visual alarm for this task
+            </label>
           </div>
           <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsModalOpen(false)}>Cancel</button>

@@ -110,6 +110,8 @@ export interface Task {
   status: 'todo' | 'in_progress' | 'done'
   due_date?: string
   assigned_to?: string
+  type?: 'personal' | 'group'
+  has_alarm?: boolean
   created_at: string
   assignee?: Profile
 }

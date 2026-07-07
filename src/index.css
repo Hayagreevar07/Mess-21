@@ -3098,3 +3098,17 @@ div[role="status"] {
 .glass-card { transition: all 0.3s ease; }
 .glass-card:hover { box-shadow: 0 12px 40px rgba(16, 185, 129, 0.12) !important; border-color: rgba(16, 185, 129, 0.25) !important; }
 
+
+@keyframes pulseAlarm {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.alarm-task {
+  animation: pulseAlarm 2s infinite;
+}
+
+.pulse-icon {
+  animation: pulse 1.5s infinite;
+}

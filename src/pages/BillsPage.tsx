@@ -444,7 +444,7 @@ export default function BillsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '6px', borderRadius: '8px', color: 'var(--warning)' }}><Receipt size={14} /></div>
-                    <span>Mess Expense Share</span>
+                    <span>Expense Share</span>
                   </div>
                   <span style={{ fontWeight: 600 }}>₹{s.expenseShare.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                 </div>

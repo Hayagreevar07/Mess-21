@@ -44,7 +44,7 @@ export default function Sidebar({ isOpen = false, onClose, pendingTaskCount = 0 
     { to: '/expenses', icon: Receipt, label: 'Expense', roles: ['admin', 'representative', 'member'] },
     { to: '/bills', icon: WalletCards, label: 'Bills', roles: ['admin', 'representative', 'member'] },
     { to: '/budget', icon: WalletCards, label: 'Budget', roles: ['admin', 'representative', 'member'] },
-    { to: '/transactions', icon: ArrowRightLeft, label: 'Transfers', roles: ['admin', 'representative', 'member'] },
+    { to: '/transactions', icon: ArrowRightLeft, label: 'Lending', roles: ['admin', 'representative', 'member'] },
     { to: '/tasks', icon: ListTodo, label: 'Todo', roles: ['admin', 'representative', 'member'] },
     { to: '/queries', icon: MessageSquare, label: 'Notes', roles: ['admin', 'representative', 'member'] },
     { to: '/members', icon: Users, label: 'Members', roles: ['admin', 'representative'] },

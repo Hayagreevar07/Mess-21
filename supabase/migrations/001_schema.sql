@@ -123,8 +123,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),
   due_date DATE,
   assigned_to TEXT REFERENCES profiles(id),
+  type TEXT DEFAULT 'group' CHECK (type IN ('personal', 'group')),
+  has_alarm BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrations for existing tables
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'group' CHECK (type IN ('personal', 'group'));
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS has_alarm BOOLEAN DEFAULT false;
 
 -- ============================================
 -- NOTE: RLS is NOT enabled because Firebase

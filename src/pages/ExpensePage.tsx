@@ -142,7 +142,7 @@ export default function ExpensePage() {
     <div className="page expense-page">
       <div className="page-header">
         <div>
-          <h1>{role === 'member' ? 'My Expenses' : 'Mess Expenses'}</h1>
+          <h1>{role === 'member' ? 'My Expenses' : 'Expenses'}</h1>
           <p className="page-subtitle">
             Total: ₹{totalExpenses.toLocaleString()}
             {role !== 'member' && ` · Share: ₹${perMemberShare.toLocaleString(undefined, { maximumFractionDigits: 0 })}/member`}

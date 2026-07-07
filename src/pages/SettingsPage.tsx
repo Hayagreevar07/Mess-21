@@ -5,7 +5,7 @@ import { Settings, Save, Users, Shield, UserCheck, UserMinus, DownloadCloud, Ref
 import toast from 'react-hot-toast'
 import type { Role } from '../lib/types'
 
-const APP_VERSION = 'v1.0.0'
+const APP_VERSION = 'v2.0.0'
 
 export default function SettingsPage() {
   const { profile } = useAuth()
@@ -197,6 +197,9 @@ export default function SettingsPage() {
         <h3>
           <Settings size={18} /> General Settings
         </h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+          Manage your mess name and billing cycle. The billing cycle start day determines when monthly summaries reset.
+        </p>
         <div className="form-group">
           <label className="form-label">Mess Name</label>
           <input

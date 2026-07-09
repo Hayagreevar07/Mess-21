@@ -255,7 +255,7 @@ export default function MessagesPage() {
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>Group Chat</h3>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>All Mess Members</p>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Your Representative & Members</p>
             </div>
           </div>
 

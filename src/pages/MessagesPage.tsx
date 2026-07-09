@@ -27,7 +27,17 @@ export default function MessagesPage() {
   const { data: contacts, isLoading: loadingContacts } = useQuery({
     queryKey: ['contacts'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').neq('id', profile?.id).order('full_name')
+      let query = supabase.from('profiles').select('*').neq('id', profile?.id).order('full_name')
+      
+      if (profile?.role === 'representative') {
+        query = query.eq('rep_id', profile.id)
+      } else if (profile?.role === 'member') {
+        if (profile.rep_id) {
+          query = query.or(`id.eq.${profile.rep_id},rep_id.eq.${profile.rep_id}`)
+        }
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data
     },
@@ -45,7 +55,8 @@ export default function MessagesPage() {
         .limit(100)
 
       if (activeChat === 'group') {
-        query = query.is('receiver_id', null)
+        const groupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
+        query = query.eq('receiver_id', groupId)
       } else {
         // DM between me and activeChat
         query = query.or(`and(sender_id.eq.${profile?.id},receiver_id.eq.${activeChat}),and(sender_id.eq.${activeChat},receiver_id.eq.${profile?.id})`)
@@ -74,8 +85,9 @@ export default function MessagesPage() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
+          const currentGroupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
           // Filter out messages that don't belong to this view
-          if (activeChat === 'group' && payload.new.receiver_id !== null) return
+          if (activeChat === 'group' && payload.new.receiver_id !== currentGroupId) return
           if (activeChat !== 'group') {
             const isRelevantDM = 
               (payload.new.sender_id === profile.id && payload.new.receiver_id === activeChat) ||
@@ -131,6 +143,7 @@ export default function MessagesPage() {
   }
 
   const sendMessage = async (text: string, mediaUrl: string | null, mediaType: string | null) => {
+    const groupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
     // Optimistic UI Update
     const tempId = `temp-${Date.now()}`
     const optimisticMessage = {
@@ -138,7 +151,7 @@ export default function MessagesPage() {
       content: text,
       created_at: new Date().toISOString(),
       sender_id: profile?.id,
-      receiver_id: activeChat === 'group' ? null : activeChat,
+      receiver_id: activeChat === 'group' ? groupId : activeChat,
       media_url: mediaUrl,
       media_type: mediaType,
       profiles: {
@@ -152,7 +165,7 @@ export default function MessagesPage() {
     const { error } = await supabase.from('messages').insert({
       sender_id: profile?.id,
       content: text,
-      receiver_id: activeChat === 'group' ? null : activeChat,
+      receiver_id: activeChat === 'group' ? groupId : activeChat,
       media_url: mediaUrl,
       media_type: mediaType
     }).select().single()

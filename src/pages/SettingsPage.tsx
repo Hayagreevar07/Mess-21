@@ -5,7 +5,7 @@ import { Settings, Save, Users, Shield, UserCheck, UserMinus, DownloadCloud, Ref
 import toast from 'react-hot-toast'
 import type { Role } from '../lib/types'
 
-const APP_VERSION = 'v2.0.2'
+const APP_VERSION = 'v3.0.0'
 
 export default function SettingsPage() {
   const { profile } = useAuth()

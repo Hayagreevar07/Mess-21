@@ -56,6 +56,24 @@ export default function MessagesPage() {
 
       if (activeChat === 'group') {
         query = query.is('receiver_id', null)
+        
+        // Filter to only show group messages from our group members
+        const myGroupId = profile?.role === 'representative' ? profile.id : profile?.rep_id;
+        if (myGroupId) {
+          const { data: groupUsers } = await supabase
+            .from('profiles')
+            .select('id')
+            .or(`id.eq.${myGroupId},rep_id.eq.${myGroupId}`)
+          
+          if (groupUsers) {
+            const validIds = groupUsers.map(u => u.id)
+            query = query.in('sender_id', validIds)
+          }
+        } else if (profile?.id) {
+          // If no group, only show own messages (or none)
+          query = query.eq('sender_id', profile.id)
+        }
+
       } else {
         // DM between me and activeChat
         query = query.or(`and(sender_id.eq.${profile?.id},receiver_id.eq.${activeChat}),and(sender_id.eq.${activeChat},receiver_id.eq.${profile?.id})`)
@@ -85,7 +103,25 @@ export default function MessagesPage() {
         { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
           // Filter out messages that don't belong to this view
-          if (activeChat === 'group' && payload.new.receiver_id !== null) return
+          if (activeChat === 'group') {
+            if (payload.new.receiver_id !== null) return
+            
+            // Check if sender is in our group
+            const myGroupId = profile.role === 'representative' ? profile.id : profile.rep_id;
+            if (myGroupId) {
+              const { data: senderGroup } = await supabase
+                .from('profiles')
+                .select('rep_id, id')
+                .eq('id', payload.new.sender_id)
+                .single()
+              
+              const senderGroupId = senderGroup?.id === myGroupId ? myGroupId : senderGroup?.rep_id;
+              if (senderGroupId !== myGroupId) return;
+            } else if (payload.new.sender_id !== profile.id) {
+              return;
+            }
+          }
+          
           if (activeChat !== 'group') {
             const isRelevantDM = 
               (payload.new.sender_id === profile.id && payload.new.receiver_id === activeChat) ||

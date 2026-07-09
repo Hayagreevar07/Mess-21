@@ -24,7 +24,7 @@ serve(async (req) => {
     // 2. Fetch sender profile
     const { data: sender } = await supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, role, rep_id")
       .eq("id", senderId)
       .single();
     const senderName = sender?.full_name || "Someone";
@@ -41,10 +41,22 @@ serve(async (req) => {
       if (receiver?.fcm_token) tokens.push(receiver.fcm_token);
     } else {
       // Group message
-      const { data: groupUsers } = await supabase
+      // Find the group of the sender
+      const myGroupId = sender?.role === 'representative' ? senderId : sender?.rep_id;
+      
+      let groupUsersQuery = supabase
         .from("profiles")
         .select("fcm_token")
         .neq("id", senderId);
+        
+      if (myGroupId) {
+        groupUsersQuery = groupUsersQuery.or(`id.eq.${myGroupId},rep_id.eq.${myGroupId}`);
+      } else {
+        // If sender has no group, do not send to everyone. Just themselves (which is filtered out) or none.
+        groupUsersQuery = groupUsersQuery.eq("id", "none"); 
+      }
+
+      const { data: groupUsers } = await groupUsersQuery;
       
       if (groupUsers) {
         tokens = groupUsers

@@ -15,6 +15,9 @@ const config: CapacitorConfig = {
       skipNativeAuth: false,
       providers: ["google.com"],
     },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound"],
+    },
     StatusBar: {
       backgroundColor: '#0a0a0f',
       style: 'DARK',

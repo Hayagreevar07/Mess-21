@@ -55,8 +55,7 @@ export default function MessagesPage() {
         .limit(100)
 
       if (activeChat === 'group') {
-        const groupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
-        query = query.eq('receiver_id', groupId)
+        query = query.is('receiver_id', null)
       } else {
         // DM between me and activeChat
         query = query.or(`and(sender_id.eq.${profile?.id},receiver_id.eq.${activeChat}),and(sender_id.eq.${activeChat},receiver_id.eq.${profile?.id})`)
@@ -85,9 +84,8 @@ export default function MessagesPage() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
-          const currentGroupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
           // Filter out messages that don't belong to this view
-          if (activeChat === 'group' && payload.new.receiver_id !== currentGroupId) return
+          if (activeChat === 'group' && payload.new.receiver_id !== null) return
           if (activeChat !== 'group') {
             const isRelevantDM = 
               (payload.new.sender_id === profile.id && payload.new.receiver_id === activeChat) ||
@@ -143,7 +141,6 @@ export default function MessagesPage() {
   }
 
   const sendMessage = async (text: string, mediaUrl: string | null, mediaType: string | null) => {
-    const groupId = profile?.role === 'representative' ? `group_${profile.id}` : (profile?.rep_id ? `group_${profile.rep_id}` : 'group_global')
     // Optimistic UI Update
     const tempId = `temp-${Date.now()}`
     const optimisticMessage = {
@@ -151,7 +148,7 @@ export default function MessagesPage() {
       content: text,
       created_at: new Date().toISOString(),
       sender_id: profile?.id,
-      receiver_id: activeChat === 'group' ? groupId : activeChat,
+      receiver_id: activeChat === 'group' ? null : activeChat,
       media_url: mediaUrl,
       media_type: mediaType,
       profiles: {
@@ -165,7 +162,7 @@ export default function MessagesPage() {
     const { error } = await supabase.from('messages').insert({
       sender_id: profile?.id,
       content: text,
-      receiver_id: activeChat === 'group' ? groupId : activeChat,
+      receiver_id: activeChat === 'group' ? null : activeChat,
       media_url: mediaUrl,
       media_type: mediaType
     }).select().single()

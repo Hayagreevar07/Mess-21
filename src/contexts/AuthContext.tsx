@@ -13,6 +13,7 @@ import {
 import { Capacitor } from '@capacitor/core'
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { PushNotifications } from '@capacitor/push-notifications'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import { auth, googleProvider } from '../lib/firebase'
 import { supabase } from '../lib/supabase'
 import type { Profile, Role } from '../lib/types'
@@ -80,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (newStatus.receive !== 'granted') return
       } else if (permStatus.receive !== 'granted') {
         return
+      }
+
+      const localPermStatus = await LocalNotifications.checkPermissions()
+      if (localPermStatus.display === 'prompt') {
+        await LocalNotifications.requestPermissions()
       }
 
       await PushNotifications.removeAllListeners()

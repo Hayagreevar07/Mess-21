@@ -32,6 +32,7 @@ export default function BillsPage() {
   
   const [modalOpen, setModalOpen] = useState(false)
   const [payModalOpen, setPayModalOpen] = useState(false)
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   
@@ -79,18 +80,25 @@ export default function BillsPage() {
     const { data: mealData } = await mealQuery
 
     // 4. Fetch Expenses & Calculate Share
-    const { data: expenseData } = await supabase
+    const groupId = profile?.rep_id || profile?.id
+    
+    let expenseQuery = supabase
       .from('expenses')
-      .select('amount, added_by_profile:profiles!expenses_added_by_fkey(role)')
+      .select('amount, split_type')
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
       
-    const messExpenses = (expenseData || []).filter((e: any) => e.added_by_profile?.role !== 'member')
+    expenseQuery = expenseQuery.or(`added_by.eq.${profile.id},and(split_type.eq.rep_group,rep_id.eq.${groupId})`)
+
+    const { data: expenseData } = await expenseQuery
+      
+    const messExpenses = (expenseData || []).filter((e: any) => e.split_type !== 'personal')
     const totalMessExpenses = messExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
     
-    const { count: totalActiveMembers } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
+    let countQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
+    countQuery = countQuery.or(`id.eq.${groupId},rep_id.eq.${groupId}`)
+
+    const { count: totalActiveMembers } = await countQuery
       
     const expenseShare = totalActiveMembers ? totalMessExpenses / totalActiveMembers : 0
 
@@ -262,6 +270,11 @@ export default function BillsPage() {
     setPayModalOpen(true)
   }
 
+  const openInvoiceModal = (s: Settlement) => {
+    setSelectedSettlement(s)
+    setInvoiceModalOpen(true)
+  }
+
   const groupTotalOwed = settlements.reduce((sum, s) => sum + s.totalOwed, 0)
   const groupTotalPaid = settlements.reduce((sum, s) => sum + s.totalPaid, 0)
   const groupRemaining = settlements.reduce((sum, s) => sum + Math.max(0, s.remaining), 0)
@@ -412,6 +425,11 @@ export default function BillsPage() {
                       </button>
                     </div>
                   )}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: s.remaining > 0 ? '8px' : '8px', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-sm btn-outline" onClick={() => openInvoiceModal(s)} style={{ fontSize: '0.75rem', padding: '4px 8px' }}>
+                      <Receipt size={12} /> Invoice
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -520,6 +538,91 @@ export default function BillsPage() {
             <button className="btn btn-primary btn-full" onClick={handleRecordPayment}>
               {role === 'member' ? 'Send Payment Request' : 'Confirm Payment'}
             </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Invoice Modal */}
+      <Modal isOpen={invoiceModalOpen} onClose={() => setInvoiceModalOpen(false)} title={`Invoice - ${selectedMonth}`}>
+        {selectedSettlement && (
+          <div>
+            <div id="invoice-print-area" style={{ background: '#fff', color: '#000', padding: '24px', borderRadius: '8px', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '16px', marginBottom: '16px' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Scheward Mess</h2>
+                  <p style={{ margin: 0, color: '#555' }}>Official Settlement Invoice</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0 }}><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+                  <p style={{ margin: 0 }}><strong>Bill Month:</strong> {selectedMonth}</p>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <p style={{ margin: 0 }}><strong>Billed To:</strong></p>
+                <h3 style={{ margin: '4px 0 0', fontSize: '1.2rem' }}>{selectedSettlement.member.full_name}</h3>
+                <p style={{ margin: 0, color: '#555' }}>Role: {selectedSettlement.member.role}</p>
+              </div>
+
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #ddd' }}>
+                    <th style={{ textAlign: 'left', padding: '8px 0' }}>Description</th>
+                    <th style={{ textAlign: 'right', padding: '8px 0' }}>Qty</th>
+                    <th style={{ textAlign: 'right', padding: '8px 0' }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(selectedSettlement.mealBreakdown).map(([itemName, data]) => (
+                    <tr key={itemName} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '8px 0' }}>{itemName}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>{data.qty}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>₹{data.total.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {selectedSettlement.expenseShare > 0 && (
+                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '8px 0' }}>Shared Mess Expenses</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>-</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>₹{selectedSettlement.expenseShare.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    </tr>
+                  )}
+                  {selectedSettlement.manualBills.map((bill, i) => (
+                    <tr key={bill.id} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '8px 0' }}>Manual Bill #{i+1} {bill.is_paid ? '(Paid)' : ''}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>-</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0' }}>₹{Number(bill.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', paddingTop: '16px', fontWeight: 'bold' }}>
+                <span>Total Owed</span>
+                <span>₹{selectedSettlement.totalOwed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </div>
+              {selectedSettlement.totalPaid > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', color: '#555' }}>
+                  <span>Total Paid</span>
+                  <span>- ₹{selectedSettlement.totalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '8px', borderTop: '1px solid #ddd', fontSize: '1.2rem', fontWeight: 800 }}>
+                <span>Remaining Balance</span>
+                <span style={{ color: selectedSettlement.remaining > 0 ? '#d97706' : '#10b981' }}>
+                  ₹{Math.max(0, selectedSettlement.remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+
+              <div style={{ marginTop: '32px', textAlign: 'center', color: '#777', fontSize: '0.8rem', borderTop: '1px dashed #ccc', paddingTop: '16px' }}>
+                <p>Thank you for using Scheward Mess System!</p>
+              </div>
+            </div>
+            
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setInvoiceModalOpen(false)}>Close</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>Print / Save PDF</button>
+            </div>
           </div>
         )}
       </Modal>

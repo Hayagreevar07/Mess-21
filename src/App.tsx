@@ -1,12 +1,26 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Loader from './components/Loader'
+import OfflineBoundary from './components/OfflineBoundary'
+import WakeupOverlay from './components/WakeupOverlay'
+import { LocalNotifications } from '@capacitor/local-notifications'
+
+// Create a query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 // Lazy-load pages for faster initial load
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -22,6 +36,8 @@ const QueriesPage = lazy(() => import('./pages/QueriesPage'))
 const MembersPage = lazy(() => import('./pages/MembersPage'))
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'))
 const TasksPage = lazy(() => import('./pages/TasksPage'))
+const MessagesPage = lazy(() => import('./pages/MessagesPage'))
+const NotesPage = lazy(() => import('./pages/NotesPage'))
 
 function PageLoader() {
   return (
@@ -32,17 +48,30 @@ function PageLoader() {
 }
 
 function App() {
+  const [isWakeupActive, setIsWakeupActive] = useState(false)
+
   // Initialize native platform features
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       StatusBar.setBackgroundColor({ color: '#0a0a0f' })
       StatusBar.setStyle({ style: Style.Dark })
+
+      // Listen for local notifications
+      LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
+        const extra = notificationAction.notification.extra
+        if (extra && extra.isWakeupAlarm) {
+          setIsWakeupActive(true)
+        }
+      })
     }
   }, [])
 
   return (
     <HashRouter>
+      <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        {isWakeupActive && <WakeupOverlay onDismiss={() => setIsWakeupActive(false)} targetScore={5} />}
+        <OfflineBoundary>
         <Toaster
           position="top-center"
           toastOptions={{
@@ -85,12 +114,16 @@ function App() {
               <Route path="/members" element={<MembersPage />} />
               <Route path="/transactions" element={<TransactionsPage />} />
               <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/notes" element={<NotesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
+        </OfflineBoundary>
       </AuthProvider>
+      </QueryClientProvider>
     </HashRouter>
   )
 }

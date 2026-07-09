@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, AlertTriangle } from 'lucide-react'
+import { Menu, AlertTriangle, DollarSign, MessageCircle } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import UpdateBanner from './UpdateBanner'
@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { getLocalDateString } from '../lib/dateUtils'
+import GlobalChatListener from './chat/GlobalChatListener'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -18,11 +19,12 @@ export default function Layout() {
   const navigate = useNavigate()
   const [pendingTaskCount, setPendingTaskCount] = useState(0)
   const [mealLoggedToday, setMealLoggedToday] = useState(true)
+  const [hasUnpaidDues, setHasUnpaidDues] = useState(false)
 
   useEffect(() => {
     if (!profile) return
     const fetchTasksAndMeals = async () => {
-      const [{ count }, { data: mealData }] = await Promise.all([
+      const [{ count }, { data: mealData }, { data: duesData }] = await Promise.all([
         supabase
           .from('tasks')
           .select('*', { count: 'exact', head: true })
@@ -33,10 +35,31 @@ export default function Layout() {
           .select('id')
           .eq('member_id', profile.id)
           .eq('date', getLocalDateString())
+          .limit(1),
+        supabase
+          .from('due_bills')
+          .select('id')
+          .eq('member_id', profile.id)
+          .eq('is_paid', false)
           .limit(1)
       ])
       setPendingTaskCount(count || 0)
       setMealLoggedToday((mealData && mealData.length > 0) || false)
+      setHasUnpaidDues((duesData && duesData.length > 0) || false)
+
+      // Auto-cleanup for admin
+      if (profile.role === 'admin') {
+        const elevenMonthsAgo = new Date()
+        elevenMonthsAgo.setMonth(elevenMonthsAgo.getMonth() - 11)
+        const cutoffDate = elevenMonthsAgo.toISOString()
+        const cutoffDateOnly = getLocalDateString(elevenMonthsAgo)
+        
+        // Fire and forget cleanups
+        supabase.from('due_bills').delete().eq('is_paid', true).lt('created_at', cutoffDate).then()
+        supabase.from('transactions').delete().eq('status', 'completed').lt('created_at', cutoffDate).then()
+        supabase.from('meal_logs').delete().lt('date', cutoffDateOnly).then()
+        supabase.from('expenses').delete().lt('date', cutoffDateOnly).then()
+      }
     }
     fetchTasksAndMeals()
   }, [profile, location.pathname])
@@ -141,12 +164,62 @@ export default function Layout() {
             </button>
           </div>
         )}
+        {hasUnpaidDues && location.pathname !== '/bills' && (
+          <div style={{
+            background: 'var(--warning-bg)',
+            border: '1px solid var(--warning)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 0 15px rgba(245, 158, 11, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--warning)' }}>
+              <DollarSign size={20} className="pulse-icon" />
+              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>You have pending dues!</span>
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={() => navigate('/bills')} style={{ background: 'var(--warning)', color: '#000' }}>
+              View Bills
+            </button>
+          </div>
+        )}
         <AnimatePresence mode="wait">
           <PageTransition key={location.pathname}>
             <Outlet />
           </PageTransition>
         </AnimatePresence>
       </main>
+      
+      <GlobalChatListener />
+
+      {/* Floating Chat Button */}
+      {location.pathname !== '/messages' && (
+        <button
+          onClick={() => navigate('/messages')}
+          style={{
+            position: 'fixed',
+            bottom: '80px', // Above bottom nav
+            right: '20px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'var(--primary)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            border: 'none',
+            cursor: 'pointer',
+            zIndex: 99,
+          }}
+        >
+          <MessageCircle size={24} />
+        </button>
+      )}
+
       <BottomNav />
       <UpdateBanner />
     </div>

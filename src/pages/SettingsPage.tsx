@@ -379,6 +379,26 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Ownership & Security Badge */}
+      <div style={{
+        marginTop: '32px',
+        padding: '16px',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        opacity: 0.8
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
+          <Shield size={20} />
+          <span style={{ fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Securely Owned & Developed</span>
+        </div>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
+          This application and its intellectual property are exclusively owned by <strong>Hayagreevar07</strong>.
+        </p>
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { getLocalDateString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { MenuItem, MealType, Profile } from '../lib/types'
-import { Plus, Minus, Save, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
+import { Plus, Minus, Save, ChevronLeft, ChevronRight, ShoppingCart, Calendar as CalendarIcon, LayoutList } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const mealTypes: { value: MealType; label: string; emoji: string }[] = [
@@ -65,16 +65,24 @@ export default function MealLogPage() {
   const [cart, setCart] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [viewMode, setViewMode] = useState<'day' | 'calendar'>('day')
+  const [monthlyLogs, setMonthlyLogs] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
   }, [])
 
   useEffect(() => {
-    if (selectedMember && selectedDate && selectedMealType) {
+    if (selectedMember && selectedDate && selectedMealType && viewMode === 'day') {
       fetchExistingLogs()
     }
-  }, [selectedMember, selectedDate, selectedMealType])
+  }, [selectedMember, selectedDate, selectedMealType, viewMode])
+
+  useEffect(() => {
+    if (viewMode === 'calendar') {
+      fetchMonthlyLogs()
+    }
+  }, [selectedMember, selectedDate, viewMode])
 
   // Auto-select meal type based on time of day
   useEffect(() => {
@@ -122,6 +130,23 @@ export default function MealLogPage() {
       cartFromLogs[log.menu_item_id] = log.quantity
     })
     setCart(cartFromLogs)
+  }
+
+  const fetchMonthlyLogs = async () => {
+    if (!selectedMember || !selectedDate) return
+    const [year, month] = selectedDate.split('-')
+    const startOfMonth = `${year}-${month}-01`
+    const lastDay = new Date(Number(year), Number(month), 0).getDate()
+    const endOfMonth = `${year}-${month}-${String(lastDay).padStart(2, '0')}`
+
+    const { data } = await supabase
+      .from('meal_logs')
+      .select('*, menu_item:menu_items(name, price)')
+      .eq('member_id', selectedMember)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+
+    setMonthlyLogs(data || [])
   }
 
   const saveCartToDb = async (cartState: Record<string, number>, member: string, date: string, type: MealType) => {
@@ -216,18 +241,78 @@ export default function MealLogPage() {
     )
   }
 
+  const renderCalendar = () => {
+    const [year, month] = selectedDate.split('-').map(Number)
+    const firstDay = new Date(year, month - 1, 1).getDay()
+    const daysInMonth = new Date(year, month, 0).getDate()
+    
+    const days = []
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>)
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+      const dayLogs = monthlyLogs.filter(log => log.date === dateStr)
+      
+      const emojis = dayLogs.map(log => getFoodEmoji(log.menu_item?.name || ''))
+      // Remove duplicates
+      const uniqueEmojis = [...new Set(emojis)].slice(0, 4)
+      const hasMore = emojis.length > 4
+      
+      days.push(
+        <div key={i} className={`calendar-day ${dateStr === getLocalDateString() ? 'today' : ''} ${dayLogs.length > 0 ? 'has-logs' : ''}`} onClick={() => {
+          setSelectedDate(dateStr)
+          setViewMode('day')
+        }}>
+          <span className="calendar-date-num">{i}</span>
+          <div className="calendar-emojis">
+            {uniqueEmojis.map((emoji, idx) => <span key={idx} style={{ fontSize: '1.2rem' }}>{emoji}</span>)}
+            {hasMore && <span className="calendar-more" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>+{emojis.length - 4}</span>}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="calendar-view card glass-card" style={{ padding: '16px', marginTop: '16px' }}>
+        <div className="calendar-grid">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <div key={d} className="calendar-header-day">{d}</div>
+          ))}
+          {days}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page meal-log-page">
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '16px' }}>
         <div>
           <h1>Log Meals</h1>
           <p className="page-subtitle">
-            {isToday ? "📍 Today's meals" : `📅 ${new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`}
+            {viewMode === 'day' 
+              ? (isToday ? "📍 Today's meals" : `📅 ${new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`)
+              : `📅 ${new Date(selectedDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`
+            }
           </p>
         </div>
-        {totalItems > 0 && (
-          <span className="badge-count">{totalItems}</span>
-        )}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            className={`btn-icon ${viewMode === 'day' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setViewMode('day')}
+            title="Day View"
+          >
+            <LayoutList size={20} />
+          </button>
+          <button 
+            className={`btn-icon ${viewMode === 'calendar' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setViewMode('calendar')}
+            title="Calendar View"
+          >
+            <CalendarIcon size={20} />
+          </button>
+        </div>
       </div>
 
       <div className="meal-controls">
@@ -272,50 +357,58 @@ export default function MealLogPage() {
           </div>
         )}
 
-        <div className="meal-type-tabs">
-          {mealTypes.map(mt => (
-            <button
-              key={mt.value}
-              className={`meal-tab ${selectedMealType === mt.value ? 'active' : ''}`}
-              onClick={() => setSelectedMealType(mt.value)}
-            >
-              {mt.emoji} {mt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="menu-grid meal-grid">
-        {filteredItems.map(item => (
-          <MenuItemCard 
-            key={item.id} 
-            item={item} 
-            qty={cart[item.id] || 0} 
-            onUpdate={updateCart} 
-          />
-        ))}
-      </div>
-
-      {totalItems > 0 && (
-        <div className="meal-summary-bar">
-          <div className="meal-summary-info">
-            <ShoppingCart size={18} />
-            <span className="meal-summary-count">
-              {totalItems} item{totalItems !== 1 ? 's' : ''}
-            </span>
-            <span className="meal-summary-total text-gradient" style={{ fontWeight: 700, fontSize: '1.1rem' }}>
-              ₹{totalAmount}
-            </span>
+        {viewMode === 'day' && (
+          <div className="meal-type-tabs">
+            {mealTypes.map(mt => (
+              <button
+                key={mt.value}
+                className={`meal-tab ${selectedMealType === mt.value ? 'active' : ''}`}
+                onClick={() => setSelectedMealType(mt.value)}
+              >
+                {mt.emoji} {mt.label}
+              </button>
+            ))}
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-            id="meal-save-btn"
-          >
-            <Save size={18} /> {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+        )}
+      </div>
+
+      {viewMode === 'calendar' ? (
+        renderCalendar()
+      ) : (
+        <>
+          <div className="menu-grid meal-grid">
+            {filteredItems.map(item => (
+              <MenuItemCard 
+                key={item.id} 
+                item={item} 
+                qty={cart[item.id] || 0} 
+                onUpdate={updateCart} 
+              />
+            ))}
+          </div>
+
+          {totalItems > 0 && (
+            <div className="meal-summary-bar">
+              <div className="meal-summary-info">
+                <ShoppingCart size={18} />
+                <span className="meal-summary-count">
+                  {totalItems} item{totalItems !== 1 ? 's' : ''}
+                </span>
+                <span className="meal-summary-total text-gradient" style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                  ₹{totalAmount}
+                </span>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={saving}
+                id="meal-save-btn"
+              >
+                <Save size={18} /> {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

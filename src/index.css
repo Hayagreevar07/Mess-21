@@ -3112,3 +3112,81 @@ div[role="status"] {
 .pulse-icon {
   animation: pulse 1.5s infinite;
 }
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.calendar-header-day {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+.calendar-day {
+  aspect-ratio: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.calendar-day:not(.empty):hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary);
+}
+.calendar-day.empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+.calendar-day.today {
+  border-color: var(--primary);
+  background: rgba(245, 158, 11, 0.1);
+}
+.calendar-day.has-logs {
+  background: rgba(16, 185, 129, 0.05);
+}
+.calendar-date-num {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.calendar-day.today .calendar-date-num {
+  color: var(--primary);
+}
+.calendar-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  padding-top: 4px;
+}
+
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #invoice-print-area, #invoice-print-area * {
+    visibility: visible;
+  }
+  #invoice-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px !important;
+  }
+  /* Hide modals backdrop etc */
+  .modal-overlay { background: transparent !important; }
+}
+

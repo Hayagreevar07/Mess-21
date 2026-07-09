@@ -5,6 +5,8 @@ import type { Task, Profile } from '../lib/types'
 import { CheckSquare, Plus, Circle, CheckCircle, Clock, Bell, User, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Modal from '../components/Modal'
+import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
 
 export default function TasksPage() {
   const { role, profile } = useAuth()
@@ -18,7 +20,8 @@ export default function TasksPage() {
     assigned_to: '',
     due_date: '',
     type: 'group' as 'group' | 'personal',
-    has_alarm: false
+    has_alarm: false,
+    is_wakeup_alarm: false
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -75,19 +78,50 @@ export default function TasksPage() {
 
     setSubmitting(true)
     try {
+      const finalType = isPrivileged ? form.type : 'personal'
       const { error } = await supabase.from('tasks').insert({
         title: form.title.trim(),
-        assigned_to: form.type === 'personal' ? profile?.id : (form.assigned_to || null),
+        assigned_to: finalType === 'personal' ? profile?.id : (form.assigned_to || null),
         due_date: form.due_date || null,
-        type: form.type,
+        type: finalType,
         has_alarm: form.has_alarm,
         status: 'todo'
       })
 
       if (error) throw error
+
+      if (form.has_alarm && Capacitor.isNativePlatform()) {
+        const notifId = Math.floor(Math.random() * 1000000000)
+        let scheduleDate = new Date()
+        
+        if (form.due_date) {
+           scheduleDate = new Date(form.due_date)
+           if (scheduleDate <= new Date()) {
+              // If time is in the past, schedule 5 seconds from now for immediate alert
+              scheduleDate = new Date(new Date().getTime() + 5000)
+           }
+        } else {
+           // Default to 5 seconds from now if no due date is provided
+           scheduleDate = new Date(new Date().getTime() + 5000)
+        }
+
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: form.is_wakeup_alarm ? 'WAKEUP ALARM' : 'Task Alarm',
+              body: form.title.trim(),
+              id: notifId,
+              schedule: { at: scheduleDate },
+              smallIcon: 'ic_stat_icon_config_sample',
+              extra: { isWakeupAlarm: form.is_wakeup_alarm }
+            }
+          ]
+        })
+      }
+
       toast.success('Task created')
       setIsModalOpen(false)
-      setForm({ title: '', assigned_to: '', due_date: '', type: 'group', has_alarm: false })
+      setForm({ title: '', assigned_to: '', due_date: '', type: 'group', has_alarm: false, is_wakeup_alarm: false })
       fetchData()
     } catch (err: any) {
       toast.error(err.message || 'Failed to create task')
@@ -97,7 +131,7 @@ export default function TasksPage() {
   }
 
   const toggleStatus = async (task: Task) => {
-    if (!isPrivileged) return
+    if (!isPrivileged && task.type !== 'personal') return
     const newStatus = task.status === 'done' ? 'todo' : 'done'
     
     try {
@@ -121,12 +155,10 @@ export default function TasksPage() {
           <h1 className="page-title">Mess Tasks</h1>
           <p className="page-subtitle">Track to-dos and chores for the mess</p>
         </div>
-        {isPrivileged && (
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} />
-            Add Task
-          </button>
-        )}
+        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <Plus size={18} />
+          Add Task
+        </button>
       </header>
 
       {loading ? (
@@ -164,10 +196,10 @@ export default function TasksPage() {
                   style={{ 
                     background: 'none', 
                     border: 'none', 
-                    cursor: isPrivileged ? 'pointer' : 'default',
+                    cursor: (isPrivileged || task.type === 'personal') ? 'pointer' : 'default',
                     color: isDone ? 'var(--success)' : 'var(--text-muted)'
                   }}
-                  disabled={!isPrivileged}
+                  disabled={!isPrivileged && task.type !== 'personal'}
                 >
                   {isDone ? <CheckCircle size={24} /> : <Circle size={24} />}
                 </button>
@@ -204,7 +236,7 @@ export default function TasksPage() {
                         color: isOverdue ? 'var(--danger)' : 'var(--text-muted)' 
                       }}>
                         <Clock size={12} />
-                        {new Date(task.due_date).toLocaleDateString()}
+                        {new Date(task.due_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         {isOverdue && ' (Overdue)'}
                       </span>
                     )}
@@ -232,12 +264,14 @@ export default function TasksPage() {
           <div className="form-group">
             <label className="form-label">Task Type</label>
             <div style={{ display: 'flex', gap: '16px' }}>
+              {isPrivileged && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="radio" name="task_type" checked={form.type === 'group'} onChange={() => setForm({...form, type: 'group'})} />
+                  <Users size={16} /> Group (Visible to all)
+                </label>
+              )}
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input type="radio" name="task_type" checked={form.type === 'group'} onChange={() => setForm({...form, type: 'group'})} />
-                <Users size={16} /> Group (Visible to all)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input type="radio" name="task_type" checked={form.type === 'personal'} onChange={() => setForm({...form, type: 'personal'})} />
+                <input type="radio" name="task_type" checked={form.type === 'personal' || (!isPrivileged && form.type === 'group')} onChange={() => setForm({...form, type: 'personal'})} />
                 <User size={16} /> Personal (Private)
               </label>
             </div>
@@ -254,26 +288,43 @@ export default function TasksPage() {
             </div>
           )}
           <div className="form-group">
-            <label className="form-label">Due Date (Optional)</label>
+            <label className="form-label">Due Date & Time (Optional)</label>
             <input 
-              type="date" 
+              type="datetime-local" 
               className="form-input" 
               value={form.due_date} 
               onChange={e => setForm({ ...form, due_date: e.target.value })} 
             />
           </div>
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input 
-              type="checkbox" 
-              id="alarm_checkbox" 
-              checked={form.has_alarm} 
-              onChange={e => setForm({ ...form, has_alarm: e.target.checked })}
-              style={{ width: '18px', height: '18px' }}
-            />
-            <label htmlFor="alarm_checkbox" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <Bell size={16} color={form.has_alarm ? 'var(--danger)' : 'var(--text-muted)'} /> 
-              Enable visual alarm for this task
-            </label>
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input 
+                type="checkbox" 
+                id="alarm_checkbox" 
+                checked={form.has_alarm} 
+                onChange={e => setForm({ ...form, has_alarm: e.target.checked })}
+                style={{ width: '18px', height: '18px' }}
+              />
+              <label htmlFor="alarm_checkbox" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <Bell size={16} color={form.has_alarm ? 'var(--danger)' : 'var(--text-muted)'} /> 
+                Enable device alarm for this task
+              </label>
+            </div>
+            
+            {form.has_alarm && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '24px' }}>
+                <input 
+                  type="checkbox" 
+                  id="wakeup_checkbox" 
+                  checked={form.is_wakeup_alarm} 
+                  onChange={e => setForm({ ...form, is_wakeup_alarm: e.target.checked })}
+                  style={{ width: '18px', height: '18px' }}
+                />
+                <label htmlFor="wakeup_checkbox" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--danger)' }}>
+                  Require playing Snake game to turn off (Wakeup mode)
+                </label>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsModalOpen(false)}>Cancel</button>

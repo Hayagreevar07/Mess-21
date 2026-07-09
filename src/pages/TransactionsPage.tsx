@@ -28,7 +28,7 @@ export default function TransactionsPage() {
       let membersQuery = supabase.from('profiles').select('*').neq('id', profile?.id).order('full_name')
       
       if (role === 'member' && profile?.rep_id) {
-        membersQuery = membersQuery.eq('rep_id', profile!.rep_id)
+        membersQuery = membersQuery.or(`rep_id.eq.${profile.rep_id},id.eq.${profile.rep_id}`)
       } else if (role === 'representative') {
         membersQuery = membersQuery.eq('rep_id', profile!.id)
       }

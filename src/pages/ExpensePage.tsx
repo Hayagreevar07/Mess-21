@@ -32,6 +32,7 @@ export default function ExpensePage() {
     amount: '',
     category: 'Groceries',
     date: getLocalDateString(),
+    split_type: 'rep_group',
   })
 
   useEffect(() => {
@@ -46,25 +47,29 @@ export default function ExpensePage() {
 
     let query = supabase
       .from('expenses')
-      .select('*, added_by_profile:profiles!expenses_added_by_fkey(full_name, role)')
+      .select('*, added_by_profile:profiles!expenses_added_by_fkey(full_name, role, rep_id)')
       .gte('date', startOfMonth)
       .lte('date', endOfMonth)
       .order('date', { ascending: false })
 
-    if (role === 'member') {
-      query = query.eq('added_by', profile?.id)
-    }
+    const groupId = profile?.rep_id || profile?.id
+
+    // Everyone sees their personal expenses and their group's expenses
+    query = query.or(`added_by.eq.${profile?.id},and(split_type.eq.rep_group,rep_id.eq.${groupId})`)
+
+    // Determine the count of members for THIS specific user's rep group
+    let countQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
+    countQuery = countQuery.or(`id.eq.${groupId},rep_id.eq.${groupId}`)
 
     const [{ data }, { count }] = await Promise.all([
       query,
-      supabase.from('profiles').select('*', { count: 'exact', head: true })
+      countQuery
     ])
 
     let filteredData = data || []
     
-    if (role !== 'member') {
-      filteredData = filteredData.filter(e => e.added_by_profile?.role !== 'member')
-    }
+    // We filter out personal expenses of OTHERS that somehow got fetched (shouldn't happen with proper query but just in case)
+    filteredData = filteredData.filter(e => e.split_type !== 'personal' || e.added_by === profile?.id)
 
     setExpenses(filteredData)
     setMemberCount(count || 1)
@@ -79,6 +84,8 @@ export default function ExpensePage() {
       amount: parseFloat(form.amount),
       category: form.category,
       date: form.date,
+      split_type: form.split_type,
+      rep_id: form.split_type === 'rep_group' ? (profile?.rep_id || profile?.id) : null,
       added_by: profile?.id,
     }
 
@@ -114,6 +121,7 @@ export default function ExpensePage() {
       amount: String(expense.amount),
       category: expense.category,
       date: expense.date,
+      split_type: expense.split_type || 'all',
     })
     setModalOpen(true)
   }
@@ -126,11 +134,14 @@ export default function ExpensePage() {
       amount: '',
       category: 'Groceries',
       date: getLocalDateString(),
+      split_type: 'rep_group',
     })
   }
 
+  // For simplicity, we just calculate total of what's visible. Complex splits require more member counts per rep.
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-  const perMemberShare = totalExpenses / memberCount
+  const sharedExpenses = expenses.filter(e => e.split_type !== 'personal').reduce((sum, e) => sum + Number(e.amount), 0)
+  const perMemberShare = sharedExpenses / memberCount
 
   const changeMonth = (delta: number) => {
     const [year, month] = currentMonth.split('-').map(Number)
@@ -268,6 +279,17 @@ export default function ExpensePage() {
               value={form.date}
               onChange={e => setForm({ ...form, date: e.target.value })}
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Split Type</label>
+            <select
+              className="form-input"
+              value={form.split_type}
+              onChange={e => setForm({ ...form, split_type: e.target.value })}
+            >
+              <option value="rep_group">Share with My Rep Group</option>
+              <option value="personal">Personal Expense (Not shared)</option>
+            </select>
           </div>
           <button className="btn btn-primary btn-full" onClick={handleSave}>
             {editId ? 'Update Expense' : 'Add Expense'}

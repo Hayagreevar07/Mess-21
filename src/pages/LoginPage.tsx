@@ -191,6 +191,21 @@ export default function LoginPage() {
           </button>
         </div>
       </div>
+      
+      {/* Ownership & Security Badge */}
+      <div style={{
+        position: 'absolute',
+        bottom: '24px',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        opacity: 0.7
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--primary)' }}>
+          <Shield size={14} />
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Securely Owned by Hayagreevar07</span>
+        </div>
+      </div>
     </div>
   )
 }

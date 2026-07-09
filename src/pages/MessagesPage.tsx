@@ -51,7 +51,7 @@ export default function MessagesPage() {
       let query = supabase
         .from('messages')
         .select(`id, content, created_at, sender_id, media_url, media_type, receiver_id, profiles:sender_id(full_name, avatar_url)`)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(100)
 
       if (activeChat === 'group') {
@@ -64,7 +64,7 @@ export default function MessagesPage() {
 
       const { data, error } = await query
       if (error) throw error
-      return data
+      return data.reverse()
     },
     enabled: !!profile && !!activeChat,
   })

@@ -1,8 +1,9 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Layout from './components/Layout'
@@ -47,6 +48,29 @@ function PageLoader() {
   )
 }
 
+function BackButtonHandler() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = CapacitorApp.addListener('backButton', () => {
+      if (location.pathname === '/' || location.pathname === '/dashboard' || location.pathname === '/login') {
+        CapacitorApp.exitApp();
+      } else {
+        navigate(-1);
+      }
+    });
+
+    return () => {
+      listener.then(l => l.remove());
+    };
+  }, [navigate, location]);
+
+  return null;
+}
+
 function App() {
   const [isWakeupActive, setIsWakeupActive] = useState(false)
 
@@ -68,6 +92,7 @@ function App() {
 
   return (
     <HashRouter>
+      <BackButtonHandler />
       <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {isWakeupActive && <WakeupOverlay onDismiss={() => setIsWakeupActive(false)} targetScore={5} />}

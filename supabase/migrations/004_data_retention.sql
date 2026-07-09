@@ -1,6 +1,6 @@
 -- ============================================
 -- Migration 004: Data Retention Policies
--- - Delete messages older than 1 year
+-- - Delete messages older than 6 months
 -- - Delete paid bills older than 3 months
 -- ============================================
 
@@ -14,7 +14,7 @@ SELECT cron.schedule(
   '0 0 * * *',
   $$
     DELETE FROM public.messages 
-    WHERE created_at < NOW() - INTERVAL '1 year';
+    WHERE created_at < NOW() - INTERVAL '6 months';
   $$
 );
 

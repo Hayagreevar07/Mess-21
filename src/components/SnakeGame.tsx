@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Trophy, RefreshCcw } from 'lucide-react'
+import { Trophy, RefreshCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 
 interface SnakeGameProps {
   targetScore?: number
@@ -125,28 +125,10 @@ export default function SnakeGame({ targetScore, onWin, isOfflineMode }: SnakeGa
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [direction])
 
-  // Mobile controls support
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const x = touch.clientX
-    const y = touch.clientY
-    
-    // Simple swipe/tap heuristic based on quadrant relative to center
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-
-    const dx = x - cx
-    const dy = y - cy
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 0 && direction.x !== -1) setDirection({ x: 1, y: 0 })
-      else if (dx < 0 && direction.x !== 1) setDirection({ x: -1, y: 0 })
-    } else {
-      if (dy > 0 && direction.y !== -1) setDirection({ x: 0, y: 1 })
-      else if (dy < 0 && direction.y !== 1) setDirection({ x: 0, y: -1 })
-    }
+  // D-pad controls for explicit button taps
+  const handleDirection = (newDir: Point) => {
+    if (newDir.x !== 0 && direction.x !== -newDir.x) setDirection(newDir)
+    if (newDir.y !== 0 && direction.y !== -newDir.y) setDirection(newDir)
   }
 
   useEffect(() => {
@@ -173,36 +155,52 @@ export default function SnakeGame({ targetScore, onWin, isOfflineMode }: SnakeGa
     })
   }, [snake, food])
 
+  // Common button style for D-Pad
+  const dpadBtnStyle: React.CSSProperties = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-strong)',
+    borderRadius: '12px',
+    color: 'var(--text-primary)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '56px',
+    height: '56px',
+    cursor: 'pointer',
+    touchAction: 'manipulation'
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px' }}>
       {isOfflineMode && <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>Offline Mode</h2>}
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: `${GRID_SIZE * CELL_SIZE}px`, marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '300px', marginBottom: '16px' }}>
         <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>Score: {score}</span>
         {targetScore && !isOfflineMode && (
           <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Target: {targetScore}</span>
         )}
       </div>
       
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: '300px', aspectRatio: '1/1' }}>
         <canvas
           ref={canvasRef}
           width={GRID_SIZE * CELL_SIZE}
           height={GRID_SIZE * CELL_SIZE}
           style={{ 
+            width: '100%',
+            height: '100%',
             border: '2px solid var(--border)', 
             borderRadius: '8px', 
             background: '#111827',
             touchAction: 'none'
           }}
-          onTouchStart={handleTouchStart}
         />
         
         {gameOver && !hasWon && (
           <div style={{ 
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
             background: 'rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', 
-            justifyContent: 'center', alignItems: 'center', borderRadius: '8px' 
+            justifyContent: 'center', alignItems: 'center', borderRadius: '8px', zIndex: 10
           }}>
             <h3 style={{ color: 'var(--danger)', fontSize: '1.5rem', marginBottom: '16px' }}>Game Over</h3>
             <button className="btn btn-primary" onClick={resetGame}>
@@ -215,7 +213,7 @@ export default function SnakeGame({ targetScore, onWin, isOfflineMode }: SnakeGa
           <div style={{ 
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
             background: 'rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', 
-            justifyContent: 'center', alignItems: 'center', borderRadius: '8px' 
+            justifyContent: 'center', alignItems: 'center', borderRadius: '8px', zIndex: 10
           }}>
             <Trophy size={48} color="var(--warning)" style={{ marginBottom: '16px' }} />
             <h3 style={{ color: 'var(--success)', fontSize: '1.5rem', marginBottom: '16px' }}>Alarm Stopped!</h3>
@@ -223,8 +221,25 @@ export default function SnakeGame({ targetScore, onWin, isOfflineMode }: SnakeGa
         )}
       </div>
 
+      <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+        <button style={dpadBtnStyle} onClick={() => handleDirection({ x: 0, y: -1 })}>
+          <ArrowUp size={28} />
+        </button>
+        <div style={{ display: 'flex', gap: '48px' }}>
+          <button style={dpadBtnStyle} onClick={() => handleDirection({ x: -1, y: 0 })}>
+            <ArrowLeft size={28} />
+          </button>
+          <button style={dpadBtnStyle} onClick={() => handleDirection({ x: 1, y: 0 })}>
+            <ArrowRight size={28} />
+          </button>
+        </div>
+        <button style={dpadBtnStyle} onClick={() => handleDirection({ x: 0, y: 1 })}>
+          <ArrowDown size={28} />
+        </button>
+      </div>
+
       <div style={{ marginTop: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-        Swipe or use arrow keys to move.
+        Use the on-screen buttons or arrow keys to move.
         {targetScore && !isOfflineMode && <p>Reach score {targetScore} to dismiss the alarm.</p>}
       </div>
     </div>

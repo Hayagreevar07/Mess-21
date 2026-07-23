@@ -3194,3 +3194,74 @@ div[role="status"] {
   .modal-overlay { background: transparent !important; }
 }
 
+/* ============================================
+   GLOBAL MOBILE RESPONSIVE LINE-WRAPPING RULES
+   ============================================ */
+@media (max-width: 768px) {
+  /* Automatically wrap flex elements onto new lines if they exceed screen width */
+  *, *::before, *::after {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Grids drop to single column on mobile */
+  .stats-grid,
+  .grid,
+  .dashboard-grid,
+  .quick-actions-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Flex headers and bars wrap items to new line */
+  .page-header,
+  .card-header,
+  .filter-bar,
+  .search-bar,
+  .form-row,
+  .btn-group,
+  .modal-footer,
+  .modal-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  /* Ensure buttons take full width when stacked on mobile */
+  .page-header .btn,
+  .card-header .btn,
+  .form-row .btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Table responsiveness wrapper */
+  table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+  }
+
+  /* Inputs expand full width on new lines */
+  input, select, textarea {
+    width: 100% !important;
+  }
+
+  /* Universal wrapping for all page containers, flex items, and cards across all pages */
+  div, section, article, header, footer {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Ensure text never overflows sideways anywhere in the app */
+  p, span, h1, h2, h3, h4, h5, h6, label, td, th {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+
+

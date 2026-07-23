@@ -11,6 +11,9 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    CapacitorUpdater: {
+      autoUpdate: true,
+    },
     FirebaseAuthentication: {
       skipNativeAuth: false,
       providers: ["google.com"],

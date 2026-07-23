@@ -80,6 +80,11 @@ function App() {
       StatusBar.setBackgroundColor({ color: '#0a0a0f' })
       StatusBar.setStyle({ style: Style.Dark })
 
+      // Notify Capgo updater that app is ready
+      import('@capgo/capacitor-updater').then(({ CapacitorUpdater }) => {
+        CapacitorUpdater.notifyAppReady()
+      }).catch(err => console.error('Failed to load CapacitorUpdater', err))
+
       // Listen for local notifications
       LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
         const extra = notificationAction.notification.extra

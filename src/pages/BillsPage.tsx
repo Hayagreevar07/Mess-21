@@ -67,40 +67,52 @@ export default function BillsPage() {
     const lastDay = new Date(year, month, 0).getDate()
     const endOfMonth = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
 
-    // 3. Fetch Meal Logs
-    let mealQuery = supabase
-      .from('meal_logs')
-      .select('member_id, date, quantity, menu_item:menu_items(name, price)')
-      .gte('date', startOfMonth)
-      .lte('date', endOfMonth)
+    // 3. Check for snapshot
+    const currentMonthStr = getLocalMonthString(new Date())
+    const isPastMonth = selectedMonth < currentMonthStr
+    let snapshotData = null
 
-    if (role !== 'admin') {
-      mealQuery = mealQuery.in('member_id', memberIds)
+    if (isPastMonth) {
+      let snapshotQuery = supabase.from('monthly_bills').select('*').eq('month', selectedMonth)
+      if (role !== 'admin') snapshotQuery = snapshotQuery.in('member_id', memberIds)
+      const { data: snap } = await snapshotQuery
+      if (snap && snap.length > 0) snapshotData = snap
     }
-    const { data: mealData } = await mealQuery
 
-    // 4. Fetch Expenses & Calculate Share
-    const groupId = profile?.rep_id || profile?.id
-    
-    let expenseQuery = supabase
-      .from('expenses')
-      .select('amount, split_type')
-      .gte('date', startOfMonth)
-      .lte('date', endOfMonth)
-      
-    expenseQuery = expenseQuery.or(`added_by.eq.${profile.id},and(split_type.eq.rep_group,rep_id.eq.${groupId})`)
+    let mealData: any = []
+    let expenseShare = 0
 
-    const { data: expenseData } = await expenseQuery
-      
-    const messExpenses = (expenseData || []).filter((e: any) => e.split_type !== 'personal')
-    const totalMessExpenses = messExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
-    
-    let countQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
-    countQuery = countQuery.or(`id.eq.${groupId},rep_id.eq.${groupId}`)
+    if (!snapshotData) {
+      // Fetch dynamically
+      let mealQuery = supabase
+        .from('meal_logs')
+        .select('member_id, date, quantity, menu_item:menu_items(name, price)')
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth)
 
-    const { count: totalActiveMembers } = await countQuery
+      if (role !== 'admin') mealQuery = mealQuery.in('member_id', memberIds)
+      const { data: mData } = await mealQuery
+      mealData = mData
+
+      const groupId = profile?.rep_id || profile?.id
+      let expenseQuery = supabase
+        .from('expenses')
+        .select('amount, split_type')
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth)
+        
+      expenseQuery = expenseQuery.or(`added_by.eq.${profile.id},and(split_type.eq.rep_group,rep_id.eq.${groupId})`)
+      const { data: expenseData } = await expenseQuery
+        
+      const messExpenses = (expenseData || []).filter((e: any) => e.split_type !== 'personal')
+      const totalMessExpenses = messExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
       
-    const expenseShare = totalActiveMembers ? totalMessExpenses / totalActiveMembers : 0
+      let countQuery = supabase.from('profiles').select('*', { count: 'exact', head: true })
+      countQuery = countQuery.or(`id.eq.${groupId},rep_id.eq.${groupId}`)
+      const { count: totalActiveMembers } = await countQuery
+        
+      expenseShare = totalActiveMembers ? totalMessExpenses / totalActiveMembers : 0
+    }
 
     // 5. Fetch Manual Due Bills
     let billsQuery = supabase
@@ -145,22 +157,33 @@ export default function BillsPage() {
       }
     })
 
-    // Add meals
-    ;(mealData || []).forEach((log: any) => {
-      const menuItem = Array.isArray(log.menu_item) ? log.menu_item[0] : log.menu_item;
-      if (!menuItem) return
-      const s = settlementMap[log.member_id]
-      if (s) {
-        const price = Number(menuItem.price) || 0
-        const itemName = menuItem.name || 'Unknown'
-        const cost = log.quantity * price
-        
-        if (!s.mealBreakdown[itemName]) s.mealBreakdown[itemName] = { qty: 0, total: 0 }
-        s.mealBreakdown[itemName].qty += log.quantity
-        s.mealBreakdown[itemName].total += cost
-        s.mealTotal += cost
-      }
-    })
+    // Add meals or snapshot data
+    if (snapshotData) {
+      snapshotData.forEach((snap: any) => {
+        const s = settlementMap[snap.member_id]
+        if (s) {
+          s.mealTotal = Number(snap.total_meal_amount) || 0
+          s.expenseShare = Number(snap.expense_share) || 0
+          s.mealBreakdown = snap.meal_details || {}
+        }
+      })
+    } else {
+      ;(mealData || []).forEach((log: any) => {
+        const menuItem = Array.isArray(log.menu_item) ? log.menu_item[0] : log.menu_item;
+        if (!menuItem) return
+        const s = settlementMap[log.member_id]
+        if (s) {
+          const price = Number(menuItem.price) || 0
+          const itemName = menuItem.name || 'Unknown'
+          const cost = log.quantity * price
+          
+          if (!s.mealBreakdown[itemName]) s.mealBreakdown[itemName] = { qty: 0, total: 0 }
+          s.mealBreakdown[itemName].qty += log.quantity
+          s.mealBreakdown[itemName].total += cost
+          s.mealTotal += cost
+        }
+      })
+    }
 
     // Add manual bills
     ;(billsData || []).forEach((bill: any) => {

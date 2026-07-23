@@ -15,7 +15,7 @@ import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { auth, googleProvider } from '../lib/firebase'
-import { supabase } from '../lib/supabase'
+import { supabase, setSupabaseToken } from '../lib/supabase'
 import type { Profile, Role } from '../lib/types'
 
 interface AuthContextType {
@@ -104,8 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setUser(firebaseUser)
         if (firebaseUser) {
+          const token = await firebaseUser.getIdToken()
+          setSupabaseToken(token)
           await fetchProfile(firebaseUser.uid)
         } else {
+          setSupabaseToken(null)
           setProfile(null)
           setNeedsProfile(false)
         }
@@ -115,7 +118,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       }
     })
-    return () => unsubscribe()
+
+    const unsubscribeToken = auth.onIdTokenChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        const token = await firebaseUser.getIdToken()
+        setSupabaseToken(token)
+      } else {
+        setSupabaseToken(null)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      unsubscribeToken()
+    }
   }, [])
 
   const signInWithGoogle = async () => {

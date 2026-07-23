@@ -20,30 +20,31 @@ ALTER TABLE public.monthly_bills ENABLE ROW LEVEL SECURITY;
 
 -- 2. Create basic policies requiring authentication
 -- Since Firebase is handling auth and we are passing the custom JWT,
--- auth.uid() will map to the Firebase user's UID.
+-- auth.jwt()->>'sub' will map to the Firebase user's UID (which is a string).
+-- auth.uid() only works for proper UUIDs, so we must use auth.jwt()->>'sub' instead.
 
 -- Profiles
 CREATE POLICY "Authenticated users can read profiles" 
-ON public.profiles FOR SELECT USING (auth.uid() IS NOT NULL);
+ON public.profiles FOR SELECT USING ((auth.jwt()->>'sub') IS NOT NULL);
 
 CREATE POLICY "Users can insert their own profile" 
-ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+ON public.profiles FOR INSERT WITH CHECK ((auth.jwt()->>'sub') = id);
 
 CREATE POLICY "Users can update their own profile" 
-ON public.profiles FOR UPDATE USING (auth.uid() = id);
+ON public.profiles FOR UPDATE USING ((auth.jwt()->>'sub') = id);
 
 -- Meal Logs
 CREATE POLICY "Authenticated users can read meal logs" 
-ON public.meal_logs FOR SELECT USING (auth.uid() IS NOT NULL);
+ON public.meal_logs FOR SELECT USING ((auth.jwt()->>'sub') IS NOT NULL);
 
 CREATE POLICY "Authenticated users can insert meal logs" 
-ON public.meal_logs FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+ON public.meal_logs FOR INSERT WITH CHECK ((auth.jwt()->>'sub') IS NOT NULL);
 
 CREATE POLICY "Authenticated users can update meal logs" 
-ON public.meal_logs FOR UPDATE USING (auth.uid() IS NOT NULL);
+ON public.meal_logs FOR UPDATE USING ((auth.jwt()->>'sub') IS NOT NULL);
 
 CREATE POLICY "Authenticated users can delete meal logs" 
-ON public.meal_logs FOR DELETE USING (auth.uid() IS NOT NULL);
+ON public.meal_logs FOR DELETE USING ((auth.jwt()->>'sub') IS NOT NULL);
 
 -- Other tables: General Authenticated Access
 -- We rely on the app UI to restrict admin actions (as per previous design), 
@@ -58,10 +59,10 @@ BEGIN
     WHERE schemaname = 'public' 
       AND tablename NOT IN ('profiles', 'meal_logs')
   LOOP
-    EXECUTE format('CREATE POLICY "Authenticated users can read %I" ON public.%I FOR SELECT USING (auth.uid() IS NOT NULL)', table_name, table_name);
-    EXECUTE format('CREATE POLICY "Authenticated users can insert %I" ON public.%I FOR INSERT WITH CHECK (auth.uid() IS NOT NULL)', table_name, table_name);
-    EXECUTE format('CREATE POLICY "Authenticated users can update %I" ON public.%I FOR UPDATE USING (auth.uid() IS NOT NULL)', table_name, table_name);
-    EXECUTE format('CREATE POLICY "Authenticated users can delete %I" ON public.%I FOR DELETE USING (auth.uid() IS NOT NULL)', table_name, table_name);
+    EXECUTE format('CREATE POLICY "Authenticated users can read %I" ON public.%I FOR SELECT USING ((auth.jwt()->>''sub'') IS NOT NULL)', table_name, table_name);
+    EXECUTE format('CREATE POLICY "Authenticated users can insert %I" ON public.%I FOR INSERT WITH CHECK ((auth.jwt()->>''sub'') IS NOT NULL)', table_name, table_name);
+    EXECUTE format('CREATE POLICY "Authenticated users can update %I" ON public.%I FOR UPDATE USING ((auth.jwt()->>''sub'') IS NOT NULL)', table_name, table_name);
+    EXECUTE format('CREATE POLICY "Authenticated users can delete %I" ON public.%I FOR DELETE USING ((auth.jwt()->>''sub'') IS NOT NULL)', table_name, table_name);
   END LOOP;
 END;
 $$;

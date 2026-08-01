@@ -55,10 +55,13 @@ BEGIN
   -- 3. Loop through each member to aggregate their meals
   FOR member_record IN SELECT id FROM public.profiles LOOP
     
-    -- Aggregate meals into JSON and calculate total
-    WITH member_meals AS (
+    -- Aggregate detailed date-wise meals into JSON
+    WITH member_daily_meals AS (
       SELECT 
+        ml.date::TEXT AS meal_date,
+        ml.meal_type,
         m.name AS item_name,
+        m.price AS unit_price,
         SUM(ml.quantity) AS qty,
         SUM(ml.quantity * m.price) AS total_cost
       FROM public.meal_logs ml
@@ -66,23 +69,36 @@ BEGIN
       WHERE ml.member_id = member_record.id
         AND ml.date >= start_date 
         AND ml.date <= end_date
-      GROUP BY m.name
+      GROUP BY ml.date, ml.meal_type, m.name, m.price
+      ORDER BY ml.date ASC
     )
     SELECT 
-      COALESCE(jsonb_object_agg(item_name, json_build_object('qty', qty, 'total', total_cost)) FILTER (WHERE item_name IS NOT NULL), '{}'::jsonb),
+      COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'date', meal_date,
+            'meal_type', meal_type,
+            'item_name', item_name,
+            'unit_price', unit_price,
+            'qty', qty,
+            'total', total_cost
+          )
+        ), 
+        '[]'::jsonb
+      ),
       COALESCE(SUM(total_cost), 0)
     INTO meal_json, meal_total
-    FROM member_meals;
+    FROM member_daily_meals;
 
     -- Only insert if there was any activity (meals or expenses)
     IF meal_total > 0 OR share > 0 THEN
       INSERT INTO public.monthly_bills (member_id, month, total_meal_amount, expense_share, meal_details)
-      VALUES (member_record.id, target_month, meal_total, share, COALESCE(meal_json, '{}'::jsonb));
+      VALUES (member_record.id, target_month, meal_total, share, COALESCE(meal_json, '[]'::jsonb));
     END IF;
 
   END LOOP;
 
-  -- 4. Delete the meal_logs for that month to save space
+  -- 4. Delete the meal_logs for that month to save database space after snapshotting full date details
   DELETE FROM public.meal_logs
   WHERE date >= start_date AND date <= end_date;
 

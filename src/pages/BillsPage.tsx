@@ -3,7 +3,7 @@ import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { CreditCard, Plus, Check, Clock, Utensils, Receipt, ChevronLeft, ChevronRight, CheckCircle2, DollarSign, Bell } from 'lucide-react'
+import { CreditCard, Plus, Check, Clock, Utensils, Receipt, ChevronLeft, ChevronRight, CheckCircle2, DollarSign, Bell, Calendar, Printer, Filter, ChevronDown, ChevronUp, User, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 
@@ -41,6 +41,83 @@ export default function BillsPage() {
     amount: '',
     due_date: '',
   })
+
+  const [detailedModalOpen, setDetailedModalOpen] = useState(false)
+  const [detailedLoading, setDetailedLoading] = useState(false)
+  const [detailedLogs, setDetailedLogs] = useState<any[]>([])
+  const [memberFilter, setMemberFilter] = useState<string>('all')
+  const [snapshotDetailedData, setSnapshotDetailedData] = useState<any[]>([])
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({})
+
+  const handleOpenDetailedModal = () => {
+    setDetailedModalOpen(true)
+    fetchDetailedLogs()
+  }
+
+  const fetchDetailedLogs = async () => {
+    setDetailedLoading(true)
+    const startOfMonth = `${selectedMonth}-01`
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const lastDay = new Date(year, month, 0).getDate()
+    const endOfMonth = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
+
+    let query = supabase
+      .from('meal_logs')
+      .select(`
+        id,
+        date,
+        meal_type,
+        quantity,
+        member_id,
+        profiles:member_id(id, full_name, avatar_url),
+        menu_item:menu_items(id, name, price, category)
+      `)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+      .order('date', { ascending: true })
+
+    let snapQuery = supabase
+      .from('monthly_bills')
+      .select(`
+        id,
+        month,
+        total_meal_amount,
+        expense_share,
+        meal_details,
+        member_id,
+        profile:member_id(id, full_name, avatar_url)
+      `)
+      .eq('month', selectedMonth)
+
+    if (role === 'representative' && profile) {
+      const { data: memberData } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`rep_id.eq.${profile.id},id.eq.${profile.id}`)
+      const mIds = (memberData || []).map(m => m.id)
+      if (mIds.length > 0) {
+        query = query.in('member_id', mIds)
+        snapQuery = snapQuery.in('member_id', mIds)
+      }
+    } else if (role === 'member' && profile) {
+      query = query.eq('member_id', profile.id)
+      snapQuery = snapQuery.eq('member_id', profile.id)
+    }
+
+    const [{ data: logsData, error }, { data: snapData }] = await Promise.all([
+      query,
+      snapQuery
+    ])
+
+    if (error) {
+      console.error('Failed to load detailed logs:', error)
+      toast.error('Failed to load detailed daily logs')
+    } else {
+      setDetailedLogs(logsData || [])
+    }
+    setSnapshotDetailedData(snapData || [])
+    setDetailedLoading(false)
+  }
 
   useEffect(() => {
     fetchData()
@@ -315,6 +392,223 @@ export default function BillsPage() {
   if (filter === 'pending') displayedSettlements = displayedSettlements.filter(s => s.remaining > 0)
   if (filter === 'settled') displayedSettlements = displayedSettlements.filter(s => s.remaining <= 0)
 
+  // Aggregate detailed logs for detailed daily modal view
+  const dateMap: Record<string, {
+    date: string
+    dayLabel: string
+    members: Record<string, {
+      profile: any
+      meals: Record<string, Array<{ name: string; price: number; qty: number; total: number }>>
+      memberTotal: number
+    }>
+    dateTotal: number
+  }> = {}
+
+  detailedLogs.forEach((log: any) => {
+    const d = log.date
+    const mId = log.member_id
+    if (memberFilter !== 'all' && mId !== memberFilter) return
+
+    const menuItem = Array.isArray(log.menu_item) ? log.menu_item[0] : log.menu_item
+    if (!menuItem) return
+
+    const price = Number(menuItem.price) || 0
+    const qty = Number(log.quantity) || 1
+    const cost = price * qty
+    const mealType = log.meal_type || 'other'
+    const profileObj = Array.isArray(log.profiles) ? log.profiles[0] : log.profiles || { full_name: 'Member', id: mId }
+
+    if (!dateMap[d]) {
+      const dateParts = d.split('-').map(Number)
+      const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+      const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+      dateMap[d] = {
+        date: d,
+        dayLabel,
+        members: {},
+        dateTotal: 0
+      }
+    }
+
+    if (!dateMap[d].members[mId]) {
+      dateMap[d].members[mId] = {
+        profile: profileObj,
+        meals: {},
+        memberTotal: 0
+      }
+    }
+
+    const memberEntry = dateMap[d].members[mId]
+    if (!memberEntry.meals[mealType]) {
+      memberEntry.meals[mealType] = []
+    }
+
+    const existing = memberEntry.meals[mealType].find((i: any) => i.name === menuItem.name)
+    if (existing) {
+      existing.qty += qty
+      existing.total += cost
+    } else {
+      memberEntry.meals[mealType].push({
+        name: menuItem.name,
+        price,
+        qty,
+        total: cost
+      })
+    }
+
+    memberEntry.memberTotal += cost
+    dateMap[d].dateTotal += cost
+  })
+
+  // Fallback: Populate dateMap from snapshot JSON array if meal_logs was cleared
+  if (Object.keys(dateMap).length === 0 && snapshotDetailedData.length > 0) {
+    snapshotDetailedData.forEach((snap: any) => {
+      const mId = snap.member_id
+      if (memberFilter !== 'all' && mId !== memberFilter) return
+      const profileObj = snap.profile || { full_name: 'Member', id: mId }
+      const details = snap.meal_details
+
+      if (Array.isArray(details)) {
+        details.forEach((entry: any) => {
+          const d = entry.date || `${selectedMonth}-01`
+          const mealType = entry.meal_type || 'other'
+          const itemName = entry.item_name || 'Item'
+          const price = Number(entry.unit_price) || 0
+          const qty = Number(entry.qty) || 1
+          const cost = Number(entry.total) || price * qty
+
+          if (!dateMap[d]) {
+            const dateParts = d.split('-').map(Number)
+            const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+            const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+            dateMap[d] = {
+              date: d,
+              dayLabel,
+              members: {},
+              dateTotal: 0
+            }
+          }
+
+          if (!dateMap[d].members[mId]) {
+            dateMap[d].members[mId] = {
+              profile: profileObj,
+              meals: {},
+              memberTotal: 0
+            }
+          }
+
+          const memberEntry = dateMap[d].members[mId]
+          if (!memberEntry.meals[mealType]) {
+            memberEntry.meals[mealType] = []
+          }
+
+          memberEntry.meals[mealType].push({
+            name: itemName,
+            price,
+            qty,
+            total: cost
+          })
+
+          memberEntry.memberTotal += cost
+          dateMap[d].dateTotal += cost
+        })
+      }
+    })
+  }
+
+  const sortedDates = Object.keys(dateMap).sort()
+  const monthGrandTotal = sortedDates.reduce((sum: number, d: string) => sum + dateMap[d].dateTotal, 0)
+
+  const filteredSnapshots = snapshotDetailedData.filter((snap: any) => {
+    if (memberFilter === 'all') return true
+    return snap.member_id === memberFilter
+  })
+
+  const snapshotGrandTotal = filteredSnapshots.reduce((sum: number, snap: any) => sum + Number(snap.total_meal_amount || 0) + Number(snap.expense_share || 0), 0)
+
+  const exportToCSV = () => {
+    let csvRows: string[][] = []
+
+    if (sortedDates.length > 0) {
+      csvRows.push(['Date', 'Day', 'Member Name', 'Meal Type', 'Item Name', 'Unit Price (INR)', 'Quantity', 'Line Total (INR)', 'Member Day Subtotal (INR)'])
+
+      sortedDates.forEach((dateKey: string) => {
+        const dayData = dateMap[dateKey]
+        const memberIds = Object.keys(dayData.members)
+
+        memberIds.forEach((mId: string) => {
+          const mEntry = dayData.members[mId]
+          if (memberFilter !== 'all' && mId !== memberFilter) return
+          const mealTypes = Object.keys(mEntry.meals)
+
+          mealTypes.forEach((mType: string) => {
+            mEntry.meals[mType].forEach((item: any) => {
+              csvRows.push([
+                dateKey,
+                `"${dayData.dayLabel.replace(/"/g, '""')}"`,
+                `"${(mEntry.profile?.full_name || 'Member').replace(/"/g, '""')}"`,
+                mType.toUpperCase(),
+                `"${item.name.replace(/"/g, '""')}"`,
+                item.price.toString(),
+                item.qty.toString(),
+                item.total.toString(),
+                mEntry.memberTotal.toString()
+              ])
+            })
+          })
+        })
+      })
+    } else if (filteredSnapshots.length > 0) {
+      csvRows.push(['Month', 'Member Name', 'Item Name', 'Quantity', 'Line Total (INR)', 'Expense Share (INR)', 'Member Month Total (INR)'])
+
+      filteredSnapshots.forEach((snap: any) => {
+        const memberName = snap.profile?.full_name || 'Member'
+        const items = Object.entries(snap.meal_details || {})
+
+        if (items.length === 0) {
+          csvRows.push([
+            selectedMonth,
+            `"${memberName.replace(/"/g, '""')}"`,
+            'No Meals Logged',
+            '0',
+            '0',
+            snap.expense_share.toString(),
+            snap.expense_share.toString()
+          ])
+        } else {
+          items.forEach(([itemName, data]: [string, any]) => {
+            const qty = data.qty || 0
+            const total = data.total || 0
+            csvRows.push([
+              selectedMonth,
+              `"${memberName.replace(/"/g, '""')}"`,
+              `"${itemName.replace(/"/g, '""')}"`,
+              qty.toString(),
+              total.toString(),
+              snap.expense_share.toString(),
+              (Number(snap.total_meal_amount) + Number(snap.expense_share)).toString()
+            ])
+          })
+        }
+      })
+    }
+
+    if (csvRows.length <= 1) {
+      toast.error('No data available to export for this month')
+      return
+    }
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.map(e => e.join(',')).join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `${selectedMonth}_Detailed_Mess_Bill.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success(`Exported ${selectedMonth} Detailed Bill as CSV! 📄`)
+  }
+
   return (
     <div className="page bills-page">
       <div className="page-header">
@@ -322,11 +616,16 @@ export default function BillsPage() {
           <h1>Settlements</h1>
           <p className="page-subtitle">Unified view of meals, expenses, and bills</p>
         </div>
-        {(role === 'admin' || role === 'representative') && (
-          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-            <Plus size={18} /> Manual Bill
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleOpenDetailedModal}>
+            <Calendar size={18} /> Detailed Daily Bill
           </button>
-        )}
+          {(role === 'admin' || role === 'representative') && (
+            <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+              <Plus size={18} /> Manual Bill
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="meal-controls" style={{ marginBottom: '20px' }}>
@@ -648,6 +947,242 @@ export default function BillsPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Detailed Daily Bill Modal */}
+      <Modal 
+        isOpen={detailedModalOpen} 
+        onClose={() => setDetailedModalOpen(false)} 
+        title={`Detailed Daily Bill - ${new Date(`${selectedMonth}-01`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`}
+      >
+        <div className="detailed-bill-container" style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px' }}>
+          {/* Controls Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', background: 'rgba(255,255,255,0.05)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={16} style={{ color: 'var(--text-muted)' }} />
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Filter Member:</label>
+              <select 
+                className="form-input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', background: 'var(--bg-dark)', color: 'var(--text-light)' }}
+                value={memberFilter} 
+                onChange={e => setMemberFilter(e.target.value)}
+              >
+                <option value="all">All Members ({members.length})</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {sortedDates.length > 0 && (
+                <button 
+                  className="btn btn-sm btn-outline" 
+                  onClick={() => {
+                    const allExpanded = sortedDates.every(d => expandedDates[d] !== false)
+                    const next: Record<string, boolean> = {}
+                    sortedDates.forEach(d => { next[d] = !allExpanded })
+                    setExpandedDates(next)
+                  }}
+                >
+                  {sortedDates.every(d => expandedDates[d] !== false) ? 'Collapse All' : 'Expand All'}
+                </button>
+              )}
+              <button 
+                className="btn btn-sm btn-secondary" 
+                onClick={exportToCSV}
+              >
+                <Download size={14} /> Export CSV
+              </button>
+              <button 
+                className="btn btn-sm btn-primary" 
+                onClick={() => window.print()}
+              >
+                <Printer size={14} /> Print Statement
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Summary Bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sortedDates.length > 0 ? 'Active Days' : 'Snapshot Month'}</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{sortedDates.length > 0 ? `${sortedDates.length} Days` : selectedMonth}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Records Found</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-light)' }}>{sortedDates.length > 0 ? `${detailedLogs.length} Entries` : `${filteredSnapshots.length} Members`}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Bill Amount</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                ₹{(sortedDates.length > 0 ? monthGrandTotal : snapshotGrandTotal).toLocaleString('en-IN')}
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Records or Snapshot Records */}
+          {detailedLoading ? (
+            <div className="page-loader" style={{ padding: '40px' }}>
+              <div className="loader"><div className="loader-ring"></div><div className="loader-ring"></div></div>
+            </div>
+          ) : sortedDates.length === 0 && filteredSnapshots.length > 0 ? (
+            /* Snapshot Monthly Breakdown View for past archived months */
+            <div id="detailed-bill-print-area" style={{ display: 'grid', gap: '14px' }}>
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '12px 16px', fontSize: '0.85rem', color: 'var(--warning)' }}>
+                ℹ️ Past month daily logs were archived into the monthly bill snapshot. Showing itemized monthly consumption breakdown below.
+              </div>
+              {filteredSnapshots.map((snap: any) => {
+                const memberName = snap.profile?.full_name || 'Member'
+                const items = Object.entries(snap.meal_details || {}) as [string, { qty: number; total: number }][]
+                const totalMealAmt = Number(snap.total_meal_amount || 0)
+                const expShare = Number(snap.expense_share || 0)
+
+                return (
+                  <div key={snap.id} style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <User size={16} style={{ color: 'var(--primary)' }} />
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-light)' }}>{memberName}</span>
+                      </div>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>
+                        ₹{(totalMealAmt + expShare).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '6px', fontSize: '0.85rem' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem' }}>ITEMIZED MEAL CONSUMPTION</div>
+                      {items.length === 0 ? (
+                        <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No meals logged</div>
+                      ) : (
+                        items.map(([itemName, data]) => (
+                          <div key={itemName} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)' }}>
+                            <span>• {itemName} × {data.qty}</span>
+                            <span style={{ fontWeight: 600 }}>₹{data.total}</span>
+                          </div>
+                        ))
+                      )}
+
+                      {expShare > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning)', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                          <span>Shared Mess Expense Share</span>
+                          <span style={{ fontWeight: 600 }}>₹{expShare}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : sortedDates.length === 0 ? (
+            <div className="empty-state" style={{ padding: '30px' }}>
+              <Utensils size={36} />
+              <p>No detailed meal records logged for {new Date(`${selectedMonth}-01`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
+            </div>
+          ) : (
+            <div id="detailed-bill-print-area" style={{ display: 'grid', gap: '14px' }}>
+              {sortedDates.map(dateKey => {
+                const dayData = dateMap[dateKey]
+                const isExpanded = expandedDates[dateKey] !== false
+                const memberIds = Object.keys(dayData.members)
+
+                return (
+                  <div key={dateKey} style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', overflow: 'hidden' }}>
+                    
+                    {/* Date Header */}
+                    <div 
+                      onClick={() => setExpandedDates((prev: Record<string, boolean>) => ({ ...prev, [dateKey]: !isExpanded }))}
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '12px 16px', 
+                        background: 'rgba(255,255,255,0.04)', 
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ background: 'var(--primary)', color: '#fff', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          {dayData.date}
+                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-light)', fontSize: '0.95rem' }}>
+                          {dayData.dayLabel}
+                        </span>
+                        <span className="badge" style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                          {memberIds.length} {memberIds.length === 1 ? 'member' : 'members'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1rem' }}>
+                          ₹{dayData.dateTotal.toLocaleString('en-IN')}
+                        </span>
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </div>
+                    </div>
+
+                    {/* Date Body */}
+                    {isExpanded && (
+                      <div style={{ padding: '14px 16px', display: 'grid', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        {memberIds.map(mId => {
+                          const mEntry = dayData.members[mId]
+                          const mealTypes = Object.keys(mEntry.meals)
+                          
+                          const mealEmoji: Record<string, string> = {
+                            breakfast: '🌅 Breakfast',
+                            lunch: '☀️ Lunch',
+                            dinner: '🌙 Dinner',
+                            snack: '🍿 Snack'
+                          }
+
+                          return (
+                            <div key={mId} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', padding: '12px' }}>
+                              
+                              {/* Member Row Header */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px dashed rgba(255,255,255,0.1)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <User size={14} style={{ color: 'var(--primary)' }} />
+                                  <span style={{ fontWeight: 700, color: 'var(--text-light)', fontSize: '0.9rem' }}>
+                                    {mEntry.profile.full_name}
+                                  </span>
+                                </div>
+                                <span style={{ fontWeight: 'bold', color: 'var(--warning)', fontSize: '0.9rem' }}>
+                                  Day Total: ₹{mEntry.memberTotal.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+
+                              {/* Meal Categories */}
+                              <div style={{ display: 'grid', gap: '8px' }}>
+                                {mealTypes.map(mType => (
+                                  <div key={mType} style={{ fontSize: '0.85rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, marginBottom: '2px', textTransform: 'capitalize' }}>
+                                      {mealEmoji[mType] || mType}
+                                    </div>
+                                    <div style={{ paddingLeft: '8px', display: 'grid', gap: '2px' }}>
+                                      {mEntry.meals[mType].map((item: any, idx: number) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                                          <span>
+                                            • {item.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(₹{item.price} × {item.qty})</span>
+                                          </span>
+                                          <span style={{ fontWeight: 600 }}>₹{item.total}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   )
